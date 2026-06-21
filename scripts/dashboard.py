@@ -159,7 +159,7 @@ if menu == "📊 Resumen de Resultados":
     with col_img:
         overlay_img = IMG_DIR / "inundacion_overlay.png"
         if overlay_img.exists():
-            st.image(str(overlay_img), caption="Máscara de inundación final (azul) sobre composición en falso color (Marzo 2025).", use_container_width=True)
+            st.image(str(overlay_img), caption="Máscara de inundación final (azul) sobre composición en falso color (Marzo 2025).", width='stretch')
         else:
             st.warning("Imagen de superposición no encontrada. Corra exportar_visuales.py.")
             
@@ -180,11 +180,11 @@ elif menu == "🛰️ Comparación Sentinel-2":
     with col_fc1:
         img_feb = IMG_DIR / "rgb_false_feb.png"
         if img_feb.exists():
-            st.image(str(img_feb), caption="19 de Febrero 2025 - Antes de la Inundación", use_container_width=True)
+            st.image(str(img_feb), caption="19 de Febrero 2025 - Antes de la Inundación", width='stretch')
     with col_fc2:
         img_mar = IMG_DIR / "rgb_false_mar.png"
         if img_mar.exists():
-            st.image(str(img_mar), caption="11 de Marzo 2025 - Después de la Inundación (Inundación visible en el sector este y sur)", use_container_width=True)
+            st.image(str(img_mar), caption="11 de Marzo 2025 - Después de la Inundación (Inundación visible en el sector este y sur)", width='stretch')
             
     st.markdown("<h3 class='section-title'>Índice Espectral de Agua Modificado (MNDWI)</h3>", unsafe_allow_html=True)
     st.write("El MNDWI aprovecha la banda verde y la banda SWIR1. Los valores positivos y cercanos a 1 (rojo/azul según la paleta) representan agua pura, mientras que los valores negativos representan suelo y edificación.")
@@ -193,11 +193,11 @@ elif menu == "🛰️ Comparación Sentinel-2":
     with col_m1:
         mndwi_feb = IMG_DIR / "mndwi_feb.png"
         if mndwi_feb.exists():
-            st.image(str(mndwi_feb), caption="MNDWI - 19 de Febrero 2025", use_container_width=True)
+            st.image(str(mndwi_feb), caption="MNDWI - 19 de Febrero 2025", width='stretch')
     with col_m2:
         mndwi_mar = IMG_DIR / "mndwi_mar.png"
         if mndwi_mar.exists():
-            st.image(str(mndwi_mar), caption="MNDWI - 11 de Marzo 2025", use_container_width=True)
+            st.image(str(mndwi_mar), caption="MNDWI - 11 de Marzo 2025", width='stretch')
 
 elif menu == "🧭 Datos de Soporte (DEM & Pop)":
     st.markdown("<h3 class='section-title'>Topografía y Elevación (Copernicus DEM GLO-30)</h3>", unsafe_allow_html=True)
@@ -207,7 +207,7 @@ elif menu == "🧭 Datos de Soporte (DEM & Pop)":
     with col_dem:
         dem_img = IMG_DIR / "dem_map.png"
         if dem_img.exists():
-            st.image(str(dem_img), caption="Mapa de Elevación de Bahía Blanca (Copernicus GLO-30, resolución de 20m tras interpolación).", use_container_width=True)
+            st.image(str(dem_img), caption="Mapa de Elevación de Bahía Blanca (Copernicus GLO-30, resolución de 20m tras interpolación).", width='stretch')
     with col_dem_info:
         st.info("""
         **Análisis de Elevaciones:**
@@ -223,7 +223,7 @@ elif menu == "🧭 Datos de Soporte (DEM & Pop)":
     with col_pop:
         pop_img = IMG_DIR / "poblacion_map.png"
         if pop_img.exists():
-            st.image(str(pop_img), caption="Mapa de Densidad Poblacional (hab/ha) de WorldPop alineado al AOI.", use_container_width=True)
+            st.image(str(pop_img), caption="Mapa de Densidad Poblacional (hab/ha) de WorldPop alineado al AOI.", width='stretch')
     with col_pop_info:
         st.info(f"""
         **Análisis Demográfico:**
