@@ -4,6 +4,14 @@ Este documento resume los logros obtenidos en la ejecución y resolución técni
 
 ---
 
+## 📽️ Demostración del Dashboard en Vivo
+
+A continuación se muestra una grabación animada del visualizador de Streamlit interactivo en funcionamiento:
+
+![Grabación del Dashboard de Streamlit interactivo](/home/augusto/.gemini/antigravity-ide/brain/f832c0be-1379-4890-98cf-754c40e7ff8d/dashboard_demo.webp)
+
+---
+
 ## 📊 Resumen de Resultados Cuantitativos
 
 El pipeline de procesamiento ejecutó con éxito todos los análisis en el área de interés (AOI) arrojando las siguientes métricas finales:
@@ -15,7 +23,21 @@ El pipeline de procesamiento ejecutó con éxito todos los análisis en el área
 
 ---
 
-## 🖼️ Galería de Resultados Visuales
+## 🖼️ Capturas de la Interfaz del Dashboard
+
+````carousel
+![Página de Resumen de Resultados y Métricas de Impacto](/home/augusto/.gemini/antigravity-ide/brain/f832c0be-1379-4890-98cf-754c40e7ff8d/screenshot_resumen.png)
+<!-- slide -->
+![Comparación de Imágenes en Falso Color y MNDWI (Feb vs Mar)](/home/augusto/.gemini/antigravity-ide/brain/f832c0be-1379-4890-98cf-754c40e7ff8d/screenshot_comparacion.png)
+<!-- slide -->
+![Mapas de Soporte del DEM de Copernicus y WorldPop](/home/augusto/.gemini/antigravity-ide/brain/f832c0be-1379-4890-98cf-754c40e7ff8d/screenshot_soporte.png)
+<!-- slide -->
+![Mapa Interactivo con Hidrología Dinámica del IGN](/home/augusto/.gemini/antigravity-ide/brain/f832c0be-1379-4890-98cf-754c40e7ff8d/screenshot_mapa.png)
+````
+
+---
+
+## 🖼️ Galería de Gráficos Procesados
 
 ````carousel
 ![Superposición de la Máscara de Inundación (Cyan) sobre composición en Falso Color de Marzo 2025](/home/augusto/.gemini/antigravity-ide/brain/f832c0be-1379-4890-98cf-754c40e7ff8d/inundacion_overlay.png)
@@ -37,16 +59,16 @@ El pipeline de procesamiento ejecutó con éxito todos los análisis en el área
 
 Hemos creado un ecosistema de archivos estructurado y limpio en `/home/augusto/Desktop/TP2`:
 
-1.  **[procesamiento.py](file:///home/augusto/Desktop/TP2/procesamiento.py):**
+1.  **[procesamiento.py](file:///home/augusto/Desktop/TP2/scripts/procesamiento.py):**
     *   **Descargas Automáticas:** Descarga el DEM de Copernicus (AWS S3) y la población de WorldPop, y realiza solicitudes WFS dinámicas al IGN para obtener las capas de hidrología (cursos y espejos de agua).
     *   **Preprocesamiento y Alineación:** Une los DEMs y alinea/reproyecta las grillas al CRS `EPSG:32720` de Sentinel-2 a 20m.
     *   **Clasificaciones:** Entrena un modelo **Random Forest** semi-supervisado (con etiquetas generadas automáticamente usando MNDWI) y un modelo **K-Means** no supervisado.
     *   **Filtrado:** Limpia la inundación descontando el agua permanente (IGN) y las zonas no inundables (DEM).
-2.  **[exportar_visuales.py](file:///home/augusto/Desktop/TP2/exportar_visuales.py):**
+2.  **[exportar_visuales.py](file:///home/augusto/Desktop/TP2/scripts/exportar_visuales.py):**
     *   Exporta imágenes en alta calidad (PNG) aplicando estiramientos de contraste percentiles y colormapas adecuados para el dashboard.
-3.  **[dashboard.py](file:///home/augusto/Desktop/TP2/dashboard.py):**
+3.  **[dashboard.py](file:///home/augusto/Desktop/TP2/scripts/dashboard.py):**
     *   Aplicación interactiva de Streamlit con métricas en tiempo real, mapas comparativos deslizantes y un mapa de Folium/Leafmap interactivo con las capas de hidrología del IGN sobre el AOI.
-4.  **[Procesamiento_y_Analisis.ipynb](file:///home/augusto/Desktop/TP2/Procesamiento_y_Analisis.ipynb):**
+4.  **[Procesamiento_y_Analisis.ipynb](file:///home/augusto/Desktop/TP2/notebooks/Procesamiento_y_Analisis.ipynb):**
     *   Cuaderno Jupyter completo para el flujo paso a paso del TP, con celdas explicativas y bloques de código listos para su ejecución y presentación.
 
 ---
@@ -57,11 +79,11 @@ El entorno virtual `.venv/` ya está preconfigurado con las librerías necesaria
 
 ### Para ejecutar el Pipeline y exportar estadísticas:
 ```bash
-.venv/bin/python procesamiento.py
+.venv/bin/python scripts/procesamiento.py
 ```
 
 ### Para visualizar y explorar interactivamente en tu navegador:
 ```bash
-.venv/bin/streamlit run dashboard.py
+.venv/bin/streamlit run scripts/dashboard.py
 ```
 *(Se abrirá automáticamente el visor en tu navegador local).*

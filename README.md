@@ -25,12 +25,15 @@ El proyecto implementa un flujo completo de teledetección utilizando imágenes 
 
 El repositorio está organizado de la siguiente manera:
 
-*   `procesamiento.py`: Script principal de Python que ejecuta el pipeline completo (descargas, mosaicos, ML, filtrados y cálculos).
-*   `dashboard.py`: Aplicación interactiva de Streamlit para el análisis y exploración de los mapas y métricas.
+*   `scripts/`:
+    *   `procesamiento.py`: Script principal de Python que ejecuta el pipeline completo (descargas, mosaicos, ML, filtrados y cálculos).
+    *   `dashboard.py`: Aplicación interactiva de Streamlit para el análisis y exploración de los mapas y métricas.
+    *   `exportar_visuales.py`: Utilidad para exportar mapas y contrastes en PNG para el dashboard.
+    *   `convert_geojson_to_js.py`: Convierte vectores GeoJSON a JavaScript para evitar bloqueos de CORS locales.
+*   `notebooks/`:
+    *   `Procesamiento_y_Analisis.ipynb`: Cuaderno Jupyter interactivo con el paso a paso del estudio detallado y comentado.
+    *   `Descarga de imágenes.ipynb`: Cuaderno original de descarga.
 *   `index.html`: Versión del dashboard interactivo en HTML estático, autocompletada y optimizada para ser hosteada en **GitHub Pages** (utiliza Leaflet.js).
-*   `exportar_visuales.py`: Utilidad para exportar mapas y contrastes en PNG para el dashboard.
-*   `convert_geojson_to_js.py`: Convierte vectores GeoJSON a JavaScript para evitar bloqueos de CORS locales.
-*   `Procesamiento_y_Analisis.ipynb`: Cuaderno Jupyter interactivo con el paso a paso del estudio detallado y comentado.
 *   `consignas/`: Enunciados y pautas originales del TP.
 *   `docs/`:
     *   `informe_final.md`: Informe científico formal redactado en español con formato paper académico.
@@ -52,20 +55,20 @@ source .venv/bin/activate
 ### 2. Ejecutar el Pipeline de Procesamiento
 Para correr las clasificaciones (Random Forest y K-Means), descargar los datos externos y calcular el impacto:
 ```bash
-python procesamiento.py
+python scripts/procesamiento.py
 ```
 Este script creará los rasters en `data-Sentinel-2/` y guardará un resumen en `data-Sentinel-2/resumen_resultados.txt`.
 
 ### 3. Generar las Imágenes Visuales
 Para exportar los gráficos del DEM, población y falso color que alimentan la interfaz gráfica:
 ```bash
-python exportar_visuales.py
+python scripts/exportar_visuales.py
 ```
 
 ### 4. Lanzar el Dashboard Interactivo (Streamlit)
 Para correr el servidor local interactivo y explorar los resultados desde el navegador:
 ```bash
-streamlit run dashboard.py
+streamlit run scripts/dashboard.py
 ```
 *(Se abrirá por defecto en `http://localhost:8501`)*.
 

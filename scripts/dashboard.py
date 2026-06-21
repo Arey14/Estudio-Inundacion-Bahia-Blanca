@@ -161,7 +161,7 @@ if menu == "📊 Resumen de Resultados":
         if overlay_img.exists():
             st.image(str(overlay_img), caption="Máscara de inundación final (azul) sobre composición en falso color (Marzo 2025).", width='stretch')
         else:
-            st.warning("Imagen de superposición no encontrada. Corra exportar_visuales.py.")
+            st.warning("Imagen de superposición no encontrada. Corra scripts/exportar_visuales.py.")
             
     with col_info:
         st.info("""
