@@ -1,0 +1,7 @@
+RESUMEN DE RESULTADOS - TRABAJO PRÁCTICO N° 2
+=============================================
+
+Hectáreas afectadas por la inundación: 2206.92 ha
+Población estimada afectada: 944 personas
+Píxeles totales inundados (20m): 55173
+Cuerpos de agua permanentes IGN descontados: 357.48 ha

@@ -1,0 +1,28 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Data and Heavy GeoTIFF Files
+sentinel_descargas/
+data-Sentinel-2/temp/
+*.tif
+*.tiff
+*.zip
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Jupyter Notebook Cache
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# IDE and System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
