@@ -205,7 +205,7 @@ elif menu == "🎬 Simulación de Crecida (DEM)":
     
     alturas = [0, 2, 4, 6, 8, 10, 12, 15, 20, 25, 30]
     
-    col_ctrl, col_display = st.columns([1, 2])
+    col_ctrl, col_display = st.columns([1, 3])
     
     with col_ctrl:
         st.info("💡 **Análisis de Vulnerabilidad**: Las cuencas bajas del este y los humedales del sur se inundan de forma masiva por debajo de la cota de 6m. La zona urbana central alta está resguardada por su altitud (cota > 20m).")
