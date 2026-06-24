@@ -99,7 +99,7 @@ if RESUMEN_FILE.exists():
 st.sidebar.markdown("<h2 style='text-align: center; color: #1E3A8A;'>🌊 Navegación</h2>", unsafe_allow_html=True)
 menu = st.sidebar.radio(
     "Ir a la sección:",
-    ["📊 Resumen de Resultados", "🛰️ Comparación Sentinel-2", "🧭 Datos de Soporte (DEM & Pop)", "🗺️ Mapa Interactivo IGN"]
+    ["📊 Resumen de Resultados", "🛰️ Comparación Sentinel-2", "🎬 Evolución Temporal & Simulación", "🧭 Datos de Soporte (DEM & Pop)", "🗺️ Mapa Interactivo IGN"]
 )
 
 st.sidebar.markdown("---")
@@ -198,6 +198,95 @@ elif menu == "🛰️ Comparación Sentinel-2":
         mndwi_mar = IMG_DIR / "mndwi_mar.png"
         if mndwi_mar.exists():
             st.image(str(mndwi_mar), caption="MNDWI - 11 de Marzo 2025", width='stretch')
+
+elif menu == "🎬 Evolución Temporal & Simulación":
+    st.markdown("<h3 class='section-title'>Evolución Temporal y Simulación de Crecida</h3>", unsafe_allow_html=True)
+    
+    tab1, tab2 = st.tabs(["🌧️ Evolución Temporal Real (S2/DEM)", "⛰️ Simulación Teórica de Crecida (DEM)"])
+    
+    with tab1:
+        st.write("Esta sección presenta la evolución reconstruida del anegamiento desde la situación base (19 de febrero) al pico de la inundación (11 de marzo). Se utiliza el modelo de elevación digital (Copernicus DEM) para guiar la secuencia temporal física (el agua inunda primero las cotas más bajas).")
+        
+        dates_desc = [
+            "Paso 0: 19 de Febrero (Cuerpos de agua preexistentes)",
+            "Paso 1: Evolución (Inundación en cotas <= 1.0m)",
+            "Paso 2: Evolución (Inundación en cotas <= 2.0m)",
+            "Paso 3: Evolución (Inundación en cotas <= 3.0m)",
+            "Paso 4: Evolución (Inundación en cotas <= 4.0m)",
+            "Paso 5: Evolución (Inundación en cotas <= 5.0m)",
+            "Paso 6: Evolución (Inundación en cotas <= 7.0m)",
+            "Paso 7: Evolución (Inundación en cotas <= 10.0m)",
+            "Paso 8: Evolución (Inundación en cotas <= 15.0m)",
+            "Paso 9: 11 de Marzo (Pico de inundación registrado)"
+        ]
+        
+        col_ctrl, col_display = st.columns([1, 2])
+        
+        with col_ctrl:
+            st.info("💡 **Cómo usar:** Desplazá el control deslizante para avanzar paso a paso o activá la reproducción automática para ver la secuencia animada en vivo.")
+            
+            # Autoplay control
+            play_real = st.checkbox("▶️ Reproducción Automática (Bucle)", value=False, key="play_real")
+            
+            if play_real:
+                import time
+                # Inicializar o recuperar estado del paso actual
+                if "step_real" not in st.session_state:
+                    st.session_state.step_real = 0
+                else:
+                    st.session_state.step_real = (st.session_state.step_real + 1) % 10
+                
+                step = st.slider("Paso de Evolución:", 0, 9, st.session_state.step_real, key="slider_real_disabled", disabled=True)
+                # Forzar re-ejecución periódica para la animación
+                time.sleep(0.8)
+                st.rerun()
+            else:
+                step = st.slider("Paso de Evolución:", 0, 9, 0, key="slider_real_active")
+                
+            st.write(f"**Estado actual:** {dates_desc[step]}")
+            
+        with col_display:
+            frame_path = IMG_DIR / "animacion_real" / f"frame_{step}.png"
+            if frame_path.exists():
+                st.image(str(frame_path), caption=dates_desc[step], width='stretch')
+            else:
+                st.warning(f"No se encontró el fotograma en {frame_path.name}")
+                
+    with tab2:
+        st.write("Esta simulación permite evaluar de forma teórica qué áreas se verían afectadas si el agua subiera a una altitud determinada (cota sobre el nivel del mar), considerando exclusivamente el relieve (pendientes <= 5 grados).")
+        
+        alturas = [0, 2, 4, 6, 8, 10, 12, 15, 20, 25, 30]
+        
+        col_ctrl2, col_display2 = st.columns([1, 2])
+        
+        with col_ctrl2:
+            st.info("💡 **Análisis de Vulnerabilidad**: Las cuencas bajas del este y los humedales del sur se inundan de forma masiva por debajo de la cota de 6m. La zona urbana central alta está resguardada por su altitud (cota > 20m).")
+            
+            play_dem = st.checkbox("▶️ Reproducción Automática (Bucle)", value=False, key="play_dem")
+            
+            if play_dem:
+                import time
+                if "step_dem" not in st.session_state:
+                    st.session_state.step_dem = 0
+                else:
+                    st.session_state.step_dem = (st.session_state.step_dem + 1) % len(alturas)
+                
+                h_idx = st.slider("Cota de agua (m.s.n.m.):", 0, len(alturas)-1, st.session_state.step_dem, key="slider_dem_disabled", disabled=True)
+                h_val = alturas[h_idx]
+                time.sleep(0.8)
+                st.rerun()
+            else:
+                h_idx = st.slider("Seleccionar cota:", 0, len(alturas)-1, 0, key="slider_dem_active")
+                h_val = alturas[h_idx]
+                
+            st.write(f"**Cota de agua simulada:** {h_val} m.s.n.m.")
+            
+        with col_display2:
+            frame_path = IMG_DIR / "animacion_dem" / f"frame_{h_val}.png"
+            if frame_path.exists():
+                st.image(str(frame_path), caption=f"Simulación topográfica a cota {h_val} m.s.n.m.", width='stretch')
+            else:
+                st.warning(f"No se encontró el fotograma para la cota {h_val}")
 
 elif menu == "🧭 Datos de Soporte (DEM & Pop)":
     st.markdown("<h3 class='section-title'>Topografía y Elevación (Copernicus DEM GLO-30)</h3>", unsafe_allow_html=True)
