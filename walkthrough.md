@@ -66,8 +66,9 @@ Hemos creado un ecosistema de archivos estructurado y limpio en `/home/augusto/D
     *   **Filtrado:** Limpia la inundación descontando el agua permanente (IGN) y las zonas no inundables (DEM).
 2.  **[exportar_visuales.py](file:///home/augusto/Desktop/TP2/scripts/exportar_visuales.py):**
     *   Exporta imágenes en alta calidad (PNG) aplicando estiramientos de contraste percentiles y colormapas adecuados para el dashboard.
+    *   **Módulo de Animación**: Renderiza de manera eficiente los fotogramas para la simulación física por DEM y la secuencia temporal reconstruida.
 3.  **[dashboard.py](file:///home/augusto/Desktop/TP2/scripts/dashboard.py):**
-    *   Aplicación interactiva de Streamlit con métricas en tiempo real, mapas comparativos deslizantes y un mapa de Folium/Leafmap interactivo con las capas de hidrología del IGN sobre el AOI.
+    *   Aplicación interactiva de Streamlit con métricas en tiempo real, mapas comparativos deslizantes, mapas del IGN y un **panel de animación interactivo** con soporte para reproducción automática en vivo.
 4.  **[Procesamiento_y_Analisis.ipynb](file:///home/augusto/Desktop/TP2/notebooks/Procesamiento_y_Analisis.ipynb):**
     *   Cuaderno Jupyter completo para el flujo paso a paso del TP, con celdas explicativas y bloques de código listos para su ejecución y presentación.
 
