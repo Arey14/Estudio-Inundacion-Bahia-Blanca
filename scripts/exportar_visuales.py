@@ -134,12 +134,21 @@ def export_dem_simulation_frames():
     anim_dir = IMG_DIR / "animacion_dem"
     anim_dir.mkdir(exist_ok=True)
     
-    if not DEM_PATH.exists():
-        print("⚠️ No se encontró dem_clip.tif. Saltando simulación por DEM.")
+    if not (DEM_PATH.exists() and IMG_MAR.exists()):
+        print("⚠️ Faltan archivos para la simulación por DEM. Saltando.")
         return
         
     with rasterio.open(DEM_PATH) as src:
         dem = src.read(1)
+        
+    with rasterio.open(IMG_MAR) as src:
+        swir = src.read(5)
+        nir = src.read(6)
+        green = src.read(2)
+        r = percentile_stretch(swir)
+        g = percentile_stretch(nir)
+        b = percentile_stretch(green)
+        rgb = np.stack([r, g, b], axis=2)
         
     # Calcular pendiente para filtrar zonas planas
     dy, dx = np.gradient(dem, 20.0)
@@ -152,20 +161,29 @@ def export_dem_simulation_frames():
         # Criterio: elevación <= h_val y pendiente <= 5 grados, y DEM válido
         water_mask = (dem <= h_val) & (slope <= 5) & (dem > -9000)
         
+        # 1. Versión con Fondo Satelital (para Streamlit)
         plt.figure(figsize=(10, 8), dpi=150)
-        # Mostrar el DEM de fondo en escala de grises
-        plt.imshow(dem, cmap="gray", vmin=0, vmax=60)
-        
-        # Superponer la máscara de agua simulada en azul
+        plt.imshow(rgb)
         masked_water = np.ma.masked_where(~water_mask, water_mask)
         plt.imshow(masked_water, cmap="Blues_r", alpha=0.6)
-        
-        plt.title(f"Simulación de Crecida: {h_val} m.s.n.m.", fontsize=14, color="#1E3A8A", fontweight="bold")
         plt.axis("off")
         plt.tight_layout()
-        plt.savefig(anim_dir / f"frame_{h_val}.png", bbox_inches='tight')
+        plt.savefig(anim_dir / f"frame_{h_val}.png", bbox_inches='tight', pad_inches=0)
         plt.close()
-    print("✔️ Fotogramas de simulación por DEM generados.")
+        
+        # 2. Versión Transparente (para Leaflet)
+        h, w = dem.shape
+        rgba = np.zeros((h, w, 4), dtype=np.uint8)
+        
+        # Color azul de agua: R=30, G=144, B=255 (DodgerBlue), Alfa=160
+        rgba[water_mask] = [30, 144, 255, 160]
+        # El resto queda en [0, 0, 0, 0] (completamente transparente)
+        
+        from PIL import Image
+        img = Image.fromarray(rgba, 'RGBA')
+        img.save(anim_dir / f"water_{h_val}.png")
+        
+    print("✔️ Fotogramas de simulación por DEM (con fondo y transparentes) generados.")
 
 if __name__ == "__main__":
     export_rgb_false_color()

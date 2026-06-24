@@ -481,8 +481,8 @@
             
             <div class="two-col">
                 <div>
-                    <img id="sim-img" class="display-img" src="img/animacion_dem/frame_0.png" alt="Simulación de crecida por DEM">
-                    <p class="img-caption" id="sim-caption">Simulación topográfica a cota 0 m.s.n.m.</p>
+                    <div id="sim-map" style="height: 600px; width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid var(--border-color); z-index: 1;"></div>
+                    <p class="img-caption" id="sim-caption">Simulación topográfica interactiva a cota 0 m.s.n.m.</p>
                 </div>
                 <div class="info-box" style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; justify-content: center; height: auto;">
                     <h3>Controles de Simulación</h3>
@@ -573,12 +573,15 @@
             document.getElementById('cota-val').innerText = hVal;
             document.getElementById('cota-slider').value = currentStep;
             
-            // Update image and caption
-            const simImg = document.getElementById('sim-img');
-            const simCaption = document.getElementById('sim-caption');
+            // Update Leaflet image overlay on OpenStreetMap map!
+            if (window.waterOverlay) {
+                window.waterOverlay.setUrl(`img/animacion_dem/water_${hVal}.png`);
+            }
             
-            simImg.src = `img/animacion_dem/frame_${hVal}.png`;
-            simCaption.innerText = `Simulación topográfica a cota ${hVal} m.s.n.m.`;
+            const simCaption = document.getElementById('sim-caption');
+            if (simCaption) {
+                simCaption.innerText = `Simulación topográfica interactiva a cota ${hVal} m.s.n.m.`;
+            }
         }
 
         function togglePlay() {
@@ -624,6 +627,12 @@
             if (tabId === 'mapa' && window.mymap) {
                 setTimeout(() => {
                     window.mymap.invalidateSize();
+                }, 200);
+            }
+            // If the simulation tab is chosen, invalidate sim-map size
+            if (tabId === 'crecida' && window.simmap) {
+                setTimeout(() => {
+                    window.simmap.invalidateSize();
                 }, 200);
             }
         }
@@ -710,6 +719,34 @@
                 return div;
             };
             legend.addTo(mymap);
+
+            // Init Simulation Map
+            var simmap = L.map('sim-map').setView([-38.72, -62.27], 11);
+            window.simmap = simmap;
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(simmap);
+
+            const simBounds = [[-38.94114770272498, -62.606909457818304], [-38.53121509196641, -61.94357286529591]];
+            
+            var waterOverlay = L.imageOverlay('img/animacion_dem/water_0.png', simBounds, {
+                opacity: 0.85,
+                interactive: false
+            }).addTo(simmap);
+            window.waterOverlay = waterOverlay;
+
+            if (window.aoiData) {
+                L.geoJSON(window.aoiData, {
+                    style: {
+                        color: 'red',
+                        weight: 2.5,
+                        fillColor: 'red',
+                        fillOpacity: 0.0
+                    }
+                }).addTo(simmap);
+            }
 
             // Stop play if slider is touched manually
             const slider = document.getElementById('cota-slider');
