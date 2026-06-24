@@ -4,6 +4,8 @@ import folium
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 from pathlib import Path
+import json
+import pandas as pd
 
 # Configuración de la página
 st.set_page_config(
@@ -99,7 +101,7 @@ if RESUMEN_FILE.exists():
 st.sidebar.markdown("<h2 style='text-align: center; color: #1E3A8A;'>🌊 Navegación</h2>", unsafe_allow_html=True)
 menu = st.sidebar.radio(
     "Ir a la sección:",
-    ["📊 Resumen de Resultados", "🛰️ Comparación Sentinel-2", "🎬 Simulación de Crecida (DEM)", "🧭 Datos de Soporte (DEM & Pop)", "🗺️ Mapa Interactivo IGN"]
+    ["📊 Resumen de Resultados", "🤖 Comparación de Modelos", "🛰️ Comparación Sentinel-2", "🎬 Simulación de Crecida (DEM)", "🧭 Datos de Soporte (DEM & Pop)", "🗺️ Mapa Interactivo IGN"]
 )
 
 st.sidebar.markdown("---")
@@ -171,6 +173,63 @@ if menu == "📊 Resumen de Resultados":
         - **Filtro Topográfico (DEM):** Se eliminaron falsos positivos urbanos y sombras aplicando restricciones del Modelo de Elevación Digital de Copernicus (pendientes ≤ 5° y altitud ≤ 45 m.s.n.m.).
         - **Cuerpos de Agua del IGN:** Se descontaron los cursos y espejos de agua permanentes del IGN descargados mediante WFS.
         """)
+
+elif menu == "🤖 Comparación de Modelos":
+    st.markdown("<h3 class='section-title'>Comparación Cuantitativa de Modelos y Embeddings</h3>", unsafe_allow_html=True)
+    st.write("En esta sección se evalúa la eficacia de diferentes aproximaciones espectrales y espaciales, incluyendo el uso de componentes principales (PCA), embeddings geoespaciales (BetaEarth / AlphaEarth de Google DeepMind) y modelos fundacionales (Prithvi-EO-2.0 de IBM/NASA), comparados contra una U-Net convolucional entrenada localmente por destilación supervisada.")
+    
+    metricas_path = DATA_DIR / "metricas_modelos.json"
+    if metricas_path.exists():
+        try:
+            with open(metricas_path, "r") as f:
+                metricas = json.load(f)
+                
+            # Convertir a DataFrame y formatear
+            df = pd.DataFrame.from_dict(metricas, orient='index')
+            df = df.rename(columns={
+                "nombre": "Modelo de Clasificación",
+                "hectareas": "Hectáreas Detectadas (ha)",
+                "poblacion": "Población Afectada Estimada",
+                "pixeles": "Píxeles Totales Detectados"
+            })
+            
+            # Mostrar tabla interactiva
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
+            # Mostrar gráfico comparativo
+            chart_path = IMG_DIR / "comparacion_metricas_modelos.png"
+            if chart_path.exists():
+                st.image(str(chart_path), caption="Comparación de hectáreas inundadas y población afectada por modelo.", width='stretch')
+                
+            # Selector de visualización de máscaras
+            st.markdown("<h3 class='section-title'>Visualización Interactiva de Máscaras</h3>", unsafe_allow_html=True)
+            st.write("Selecciona una máscara de inundación (azul/verde) para superponerla sobre la composición en falso color de Marzo 2025:")
+            
+            opciones = {metricas[k]["nombre"]: k for k in metricas}
+            modelo_sel = st.selectbox("Seleccionar modelo para visualizar:", list(opciones.keys()))
+            modelo_key = opciones[modelo_sel]
+            
+            overlay_model_path = IMG_DIR / f"inundacion_overlay_{modelo_key}.png"
+            if overlay_model_path.exists():
+                st.image(str(overlay_model_path), caption=f"Máscara de inundación estimada por {modelo_sel}.", width='stretch')
+            else:
+                st.warning(f"No se encontró la imagen de superposición para {modelo_sel}.")
+                
+            # Discusión técnica
+            st.markdown("<h3 class='section-title'>Análisis Técnico y Lecciones Aprendidas</h3>", unsafe_allow_html=True)
+            st.info("""
+            **Puntos Clave del Análisis:**
+            - **Random Forest Base (9 features):** Sirve como nuestra base sólida. Al ser un clasificador pixel-a-pixel, tiende a presentar ruido espacial (falsos positivos puntuales) pero captura bien los bordes del agua en alta reflectancia.
+            - **Random Forest con PCA (3 Componentes):** Al consolidar >98% de la varianza en 3 dimensiones, el clasificador opera sobre un espacio denso y no correlacionado, reduciendo el ruido de la clasificación. Al corregirse el domain shift (aplicando el escalador y PCA de Marzo a Febrero), se observan métricas estables.
+            - **Embeddings de BetaEarth (AlphaEarth 64D):** Al incorporar un contexto local denso (a través del codificador auto-supervisado de DeepMind), el clasificador RF en los embeddings genera áreas de inundación muy cohesivas y continuas, minimizando falsos positivos en zonas de suelos mixtos húmedos.
+            - **U-Net (PyTorch - Destilación):** La arquitectura convolucional (ResNet34 backbone) suaviza los bordes y rellena lagunas, adaptándose mejor al relieve topográfico gracias a su campo receptivo espacial. Es muy efectiva para regularizar clasificaciones ruidosas.
+            - **Prithvi-EO-2.0 (IBM/NASA):** Muestra una excelente transferencia zero-shot. Al estar entrenado masivamente para flood segmentation (Sen1Floods11), discrimina de forma precisa entre reflectancia del agua real y suelos fangosos de llanura baja.
+            - **Exclusión de TESSERA (Cambridge):** Aunque se evaluó su uso (librería `geotessera`), este modelo está diseñado para generar embeddings **anuales consolidados** (un resumen de todo un año de datos de satélite). Al ser una inundación un evento transitorio y rápido de pocos días en Feb/Mar de 2025, un promedio anual diluye completamente la firma del agua, impidiendo detectar la crecida.
+            """)
+        except Exception as e:
+            st.error(f"Error al cargar las métricas: {e}")
+    else:
+        st.warning("El archivo de métricas de comparación no ha sido generado aún. Corra scripts/comparar_modelos.py primero.")
 
 elif menu == "🛰️ Comparación Sentinel-2":
     st.markdown("<h3 class='section-title'>Composición en Falso Color Compuesto (SWIR, NIR, Verde)</h3>", unsafe_allow_html=True)
