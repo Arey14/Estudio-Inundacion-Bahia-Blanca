@@ -506,7 +506,9 @@
                 <button class="model-btn" onclick="changeModelOverlay('rf_pca', this)">Random Forest (3 PCA)</button>
                 <button class="model-btn" onclick="changeModelOverlay('rf_betaearth', this)">Random Forest (BetaEarth)</button>
                 <button class="model-btn" onclick="changeModelOverlay('unet', this)">U-Net (Distilación)</button>
-                <button class="model-btn" onclick="changeModelOverlay('prithvi', this)">Prithvi-EO-2.0</button>
+                <button class="model-btn" onclick="changeModelOverlay('unet_finetuned', this)">U-Net (Ajuste Fino)</button>
+                <button class="model-btn" onclick="changeModelOverlay('prithvi', this)">Prithvi-EO-2.0 (Zero-Shot)</button>
+                <button class="model-btn" onclick="changeModelOverlay('prithvi_finetuned', this)">Prithvi (Ajuste Fino)</button>
             </div>
             
             <div style="text-align: center; margin-top: 15px;">
@@ -523,6 +525,7 @@
                     <li><strong>Embeddings de BetaEarth (AlphaEarth 64D):</strong> Al incorporar un contexto local denso (a través del codificador auto-supervisado de Google DeepMind), el clasificador RF en los embeddings genera áreas de inundación muy cohesivas y continuas, minimizando falsos positivos en zonas de suelos mixtos húmedos.</li>
                     <li><strong>U-Net (PyTorch - Destilación):</strong> La arquitectura convolucional (ResNet34 backbone) suaviza los bordes y rellena lagunas, adaptándose mejor al relieve topográfico gracias a su campo receptivo espacial. Es muy efectiva para regularizar clasificaciones ruidosas.</li>
                     <li><strong>Prithvi-EO-2.0 (IBM/NASA):</strong> Muestra una excelente transferencia zero-shot. Al estar entrenado masivamente para flood segmentation (Sen1Floods11), discrimina de forma precisa entre reflectancia del agua real y suelos fangosos de llanura baja.</li>
+                    <li><strong>Ajuste Fino Local (Fine-Tuning en GPU RTX 3090):</strong> El fine-tuning local usando parches de Sentinel-2 y pseudo-etiquetas de alta confianza demostró ser una mejora crítica. En el caso de <strong>Prithvi</strong>, el modelo ajustado redujo la estimación de 8966 ha a 355 ha, eliminando por completo los falsos positivos por saturación en campos agrícolas periféricos y concentrándose únicamente en el agua estancada y las cuencas desbordadas reales.</li>
                     <li><strong>Exclusión de TESSERA (Cambridge):</strong> Aunque se evaluó su uso (librería <code>geotessera</code>), este modelo está diseñado para generar embeddings <strong>anuales consolidados</strong> (un resumen de todo un año de datos de satélite). Al ser una inundación un evento transitorio y rápido de pocos días en Feb/Mar de 2025, un promedio anual diluye completamente la firma del agua, impidiendo detectar la crecida.</li>
                 </ul>
             </div>
@@ -659,7 +662,9 @@
                 'rf_pca': 'Máscara de inundación final (azul) sobre falso color - Random Forest con PCA (3 componentes).',
                 'rf_betaearth': 'Máscara de inundación final (azul) sobre falso color - Random Forest con embeddings de BetaEarth (64D).',
                 'unet': 'Máscara de inundación final (azul) sobre falso color - U-Net entrenada por destilación supervisada.',
-                'prithvi': 'Máscara de inundación final (azul) sobre falso color - Prithvi-EO-2.0 de IBM/NASA (Zero-Shot).'
+                'unet_finetuned': 'Máscara de inundación final (azul) sobre falso color - U-Net ajustada localmente (Fine-Tuned en GPU).',
+                'prithvi': 'Máscara de inundación final (azul) sobre falso color - Prithvi-EO-2.0 de IBM/NASA (Zero-Shot).',
+                'prithvi_finetuned': 'Máscara de inundación final (azul) sobre falso color - Prithvi-EO-2.0 de IBM/NASA ajustada localmente (Fine-Tuned en GPU).'
             };
             document.getElementById('model-overlay-caption').innerText = captions[key] || '';
         };

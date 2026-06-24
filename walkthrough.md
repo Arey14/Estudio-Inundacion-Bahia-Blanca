@@ -57,17 +57,20 @@ El pipeline de procesamiento ejecutó con éxito todos los análisis en el área
 
 ## 🤖 Comparación Avanzada de Modelos y Embeddings (Punto 2)
 
-Hemos completado el análisis comparativo entrenando y evaluando 5 aproximaciones distintas para delimitar la inundación y medir el impacto demográfico:
+Hemos completado el análisis comparativo entrenando y evaluando **7 aproximaciones distintas** para delimitar la inundación y medir el impacto demográfico, incluyendo versiones pre-entrenadas (Zero-Shot) y ajustadas localmente mediante **Fine-Tuning** en la GPU **RTX 3090**:
 
 1. **Random Forest Base (9 features)**: Clasificación tradicional pixel-a-pixel. Detecta **2219.32 ha** de inundación y **960** personas afectadas. Sirve de baseline.
-2. **Random Forest con PCA (3 Componentes)**: Reduces el espacio de 7 bandas a 3 componentes principales (explicando **98.97%** de la varianza). Al corregir el domain shift (escalador y PCA ajustados en Marzo y aplicados a ambas fechas), detecta **1441.00 ha** y **337** personas afectadas, logrando una clasificación más compacta y veloz.
+2. **Random Forest con PCA (3 Componentes)**: Reduce el espacio de 7 bandas a 3 componentes principales (explicando **98.97%** de la varianza). Al corregir el domain shift (escalador y PCA ajustados en Marzo y aplicados a ambas fechas), detecta **1441.00 ha** y **337** personas afectadas, logrando una clasificación más compacta y veloz.
 3. **Random Forest con BetaEarth (embeddings de 64D)**: Extracción de representaciones espaciales latentes mediante el emulador local de DeepMind AlphaEarth (con interpolación lineal para recrear las bandas Red Edge `B05`, `B06`, `B07`). Detecta **2479.12 ha** y **1306** personas afectadas, mostrando una excelente cohesión espacial en llanuras inundadas.
-4. **U-Net (ResNet34 - Distilación Supervisada)**: Modelo convolucional entrenado localmente en PyTorch utilizando la máscara del Random Forest base como etiqueta. Destila el conocimiento reduciendo el ruido espacial y regularizando los contornos. Detecta **1652.32 ha** y **235** personas afectadas.
-5. **Prithvi-EO-2.0 (Zero-Shot)**: Inferencia directa usando el modelo fundacional de 300M de parámetros de IBM/NASA (finetuneado en Sen1Floods11). Identifica una zona de afectación mucho mayor (**8966.56 ha** y **1874** personas afectadas) al incluir áreas húmedas periféricas de llanuras de pendiente nula.
+4. **U-Net (ResNet34 - Distilación Supervisada)**: Modelo convolucional entrenado localmente en PyTorch utilizando la máscara del Random Forest base como etiqueta. Destila el conocimiento reduciendo el ruido espacial y regularizando los contornos. Detecta **1448.36 ha** y **83** personas afectadas.
+5. **U-Net (Ajuste Fino Local)**: La misma arquitectura U-Net entrenada directamente sobre parches espectrales locales de Sentinel-2 utilizando una pérdida combinada de Dice + BCE. Detecta **4583.60 ha** y **159** personas afectadas.
+6. **Prithvi-EO-2.0 (Zero-Shot)**: Inferencia directa usando el modelo fundacional de 300M de parámetros de IBM/NASA (finetuneado en Sen1Floods11). Identifica una zona de afectación mucho mayor (**8966.56 ha** y **1874** personas afectadas) al incluir áreas húmedas periféricas de llanuras de pendiente nula.
+7. **Prithvi (Ajuste Fino Local)**: El modelo fundacional Prithvi ajustado localmente congelando su encoder (backbone ViT) y entrenando solo su decodificador (UperNetDecoder) en la GPU. Al especializarse en la geografía local, reduce drásticamente la sobreestimación del modelo zero-shot, bajando de 8966 ha a **355.16 ha** y **32** personas afectadas, logrando clasificar con precisión quirúrgica el agua estancada acumulada.
 
 El gráfico comparativo consolidado se guardó en [comparacion_metricas_modelos.png](file:///home/augusto/Desktop/TP2/img/comparacion_metricas_modelos.png):
 
 ![Gráfico Comparativo de Modelos y Embeddings](/home/augusto/Desktop/TP2/img/comparacion_metricas_modelos.png)
+
 
 ---
 

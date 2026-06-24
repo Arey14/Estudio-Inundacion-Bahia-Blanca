@@ -372,6 +372,47 @@ def main():
         dst.write(inund_unet.astype(np.uint8), 1)
 
     # ------------------------------------------------------------------
+    # MODELO 4B: U-Net en PyTorch (Ajuste Fino)
+    # ------------------------------------------------------------------
+    print("\n🟢 Model 4B: U-Net en PyTorch (Ajuste Fino)...")
+    try:
+        unet_ft = smp.Unet(encoder_name="resnet34", encoder_weights=None, in_channels=7, classes=1).to("cuda")
+        unet_ft.load_state_dict(torch.load(DATA_DIR / "unet_finetuned.pt"))
+        unet_ft.eval()
+        
+        def unet_ft_predict(img):
+            _, h_orig, w_orig = img.shape
+            pad_h = (32 - (h_orig % 32)) % 32
+            pad_w = (32 - (w_orig % 32)) % 32
+            img_padded = np.pad(img, ((0,0), (0, pad_h), (0, pad_w)), mode='reflect')
+            x_tensor = torch.tensor(img_padded / 10000.0, dtype=torch.float32).unsqueeze(0).to("cuda")
+            x_tensor = torch.clip(x_tensor, 0.0, 1.0)
+            with torch.no_grad():
+                out = unet_ft(x_tensor)
+                pred = torch.sigmoid(out).squeeze().cpu().numpy()
+            return (pred[:h_orig, :w_orig] > 0.5).astype(np.uint8)
+            
+        print("   ➜ Prediciendo con U-Net Ajustada...")
+        water_feb_unet_ft = unet_ft_predict(img_stack_feb)
+        water_mar_unet_ft = unet_ft_predict(img_stack_mar)
+        
+        inund_unet_ft = (water_mar_unet_ft > 0) & ~(water_feb_unet_ft > 0)
+        inund_unet_ft = apply_topographic_filter(inund_unet_ft, DEM_PATH)
+        inund_unet_ft = inund_unet_ft & (~ign_water_mask)
+        
+        pix_unet_ft = int(np.sum(inund_unet_ft))
+        ha_unet_ft = float(pix_unet_ft * pixel_area_ha)
+        pop_unet_ft = int(np.sum(pop_density[inund_unet_ft]) * 0.0004)
+        results["unet_finetuned"] = {"nombre": "U-Net (Ajuste Fino)", "hectareas": round(ha_unet_ft, 2), "poblacion": pop_unet_ft, "pixeles": pix_unet_ft}
+        print(f"   ➜ Hectáreas: {ha_unet_ft:.2f} ha, Población afectada: {pop_unet_ft}")
+        
+        with rasterio.open(DATA_DIR / "inundacion_unet_finetuned.tif", "w", **profile) as dst:
+            dst.write(inund_unet_ft.astype(np.uint8), 1)
+    except Exception as e:
+        print(f"⚠️ Error al ejecutar U-Net Ajustada: {e}")
+        results["unet_finetuned"] = {"nombre": "U-Net (Ajuste Fino)", "hectareas": 0.0, "poblacion": 0, "pixeles": 0}
+
+    # ------------------------------------------------------------------
     # MODELO 5: Prithvi-EO-2.0-300M (Zero-Shot)
     # ------------------------------------------------------------------
     print("\n🟢 Model 5: Prithvi-EO-2.0-300M...")
@@ -421,10 +462,60 @@ def main():
         with rasterio.open(DATA_DIR / "inundacion_prithvi.tif", "w", **profile) as dst:
             dst.write(inund_prithvi.astype(np.uint8), 1)
             
+        # ------------------------------------------------------------------
+        # MODELO 5B: Prithvi-EO-2.0-300M (Ajuste Fino)
+        # ------------------------------------------------------------------
+        print("\n🟢 Model 5B: Prithvi-EO-2.0-300M (Ajuste Fino)...")
+        try:
+            print("   ➜ Cargando modelo Prithvi Ajustado...")
+            lightning_model_ft = LightningInferenceModel.from_config(
+                str(DATA_DIR / "prithvi" / "config.yaml"),
+                str(DATA_DIR / "prithvi" / "Prithvi-EO-V2-300M-TL-Sen1Floods11.pt")
+            )
+            lightning_model_ft.model.load_state_dict(torch.load(DATA_DIR / "prithvi" / "Prithvi-EO-V2-300M-Finetuned.pt"))
+            lightning_model_ft.model.eval()
+            
+            def run_prithvi_ft(bands, doy):
+                prithvi_bands = [bands['B02'], bands['B03'], bands['B04'], bands['B8A'], bands['B11'], bands['B12']]
+                input_arr = np.stack(prithvi_bands, axis=0).astype(np.float32) / 10000.0
+                input_data = np.expand_dims(input_arr, axis=(0, 2))  # shape (1, 6, 1, H, W)
+                
+                pred = run_model(
+                    input_data=input_data,
+                    temporal_coords=[[2025, doy]],
+                    location_coords=None,
+                    model=lightning_model_ft.model,
+                    datamodule=lightning_model_ft.datamodule,
+                    img_size=512
+                )
+                return (pred.squeeze().numpy() > 0).astype(np.uint8)
+                
+            print("   ➜ Prediciendo con Prithvi Ajustada (Marzo)...")
+            water_mar_prithvi_ft = run_prithvi_ft(bands_mar, doy=70)
+            print("   ➜ Prediciendo con Prithvi Ajustada (Febrero)...")
+            water_feb_prithvi_ft = run_prithvi_ft(bands_feb, doy=50)
+            
+            inund_prithvi_ft = (water_mar_prithvi_ft > 0) & ~(water_feb_prithvi_ft > 0)
+            inund_prithvi_ft = apply_topographic_filter(inund_prithvi_ft, DEM_PATH)
+            inund_prithvi_ft = inund_prithvi_ft & (~ign_water_mask)
+            
+            pix_prithvi_ft = int(np.sum(inund_prithvi_ft))
+            ha_prithvi_ft = float(pix_prithvi_ft * pixel_area_ha)
+            pop_prithvi_ft = int(np.sum(pop_density[inund_prithvi_ft]) * 0.0004)
+            results["prithvi_finetuned"] = {"nombre": "Prithvi (Ajuste Fino)", "hectareas": round(ha_prithvi_ft, 2), "poblacion": pop_prithvi_ft, "pixeles": pix_prithvi_ft}
+            print(f"   ➜ Hectáreas: {ha_prithvi_ft:.2f} ha, Población afectada: {pop_prithvi_ft}")
+            
+            with rasterio.open(DATA_DIR / "inundacion_prithvi_finetuned.tif", "w", **profile) as dst:
+                dst.write(inund_prithvi_ft.astype(np.uint8), 1)
+        except Exception as e_ft:
+            print(f"⚠️ Error al ejecutar Prithvi Ajustada: {e_ft}")
+            results["prithvi_finetuned"] = {"nombre": "Prithvi (Ajuste Fino)", "hectareas": 0.0, "poblacion": 0, "pixeles": 0}
+            
     except Exception as e:
         print(f"⚠️ Error al ejecutar Prithvi: {e}")
         # Fallback en caso de error
         results["prithvi"] = {"nombre": "Prithvi-EO-2.0", "hectareas": 0.0, "poblacion": 0, "pixeles": 0}
+        results["prithvi_finetuned"] = {"nombre": "Prithvi (Ajuste Fino)", "hectareas": 0.0, "poblacion": 0, "pixeles": 0}
 
     # ------------------------------------------------------------------
     # 4. Guardar Métricas e Gráficas Comparativas
@@ -489,7 +580,9 @@ def main():
         "rf_pca": inund_pca,
         "rf_betaearth": inund_emb,
         "unet": inund_unet,
-        "prithvi": inund_prithvi if 'inund_prithvi' in locals() else np.zeros((H,W))
+        "unet_finetuned": inund_unet_ft if 'inund_unet_ft' in locals() else np.zeros((H,W)),
+        "prithvi": inund_prithvi if 'inund_prithvi' in locals() else np.zeros((H,W)),
+        "prithvi_finetuned": inund_prithvi_ft if 'inund_prithvi_ft' in locals() else np.zeros((H,W))
     }
     
     for key, mask in masks.items():
