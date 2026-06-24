@@ -167,84 +167,9 @@ def export_dem_simulation_frames():
         plt.close()
     print("✔️ Fotogramas de simulación por DEM generados.")
 
-def export_temporal_transition_frames():
-    """Genera fotogramas de la evolución temporal real e interpolada entre Febrero y Marzo 2025."""
-    print("🎨 Generando fotogramas de transición temporal real/DEM...")
-    anim_dir = IMG_DIR / "animacion_real"
-    anim_dir.mkdir(exist_ok=True)
-    
-    feb_water_path = DATA_DIR / "water_mask_feb_rf.tif"
-    mar_water_path = DATA_DIR / "water_mask_mar_rf.tif"
-    
-    if not (feb_water_path.exists() and mar_water_path.exists() and IMG_MAR.exists() and DEM_PATH.exists()):
-        print("⚠️ Faltan archivos para la transición temporal. Saltando.")
-        return
-        
-    with rasterio.open(IMG_MAR) as src:
-        swir = src.read(5)
-        nir = src.read(6)
-        green = src.read(2)
-        r = percentile_stretch(swir)
-        g = percentile_stretch(nir)
-        b = percentile_stretch(green)
-        rgb = np.stack([r, g, b], axis=2)
-        
-    with rasterio.open(feb_water_path) as src:
-        water_feb = src.read(1) > 0
-    with rasterio.open(mar_water_path) as src:
-        water_mar = src.read(1) > 0
-    with rasterio.open(DEM_PATH) as src:
-        dem = src.read(1)
-        
-    # Inundación neta detectada
-    inundation = water_mar & (~water_feb)
-    
-    # 10 pasos de evolución temporal (del paso 0 al paso 9)
-    # Valores de elevación límite para la crecida paulatina de la inundación
-    h_steps = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 45.0]
-    dates = [
-        "19 de Febrero (Antes del evento)",
-        "Evolución (Inundación en cotas <= 1.0m)",
-        "Evolución (Inundación en cotas <= 2.0m)",
-        "Evolución (Inundación en cotas <= 3.0m)",
-        "Evolución (Inundación en cotas <= 4.0m)",
-        "Evolución (Inundación en cotas <= 5.0m)",
-        "Evolución (Inundación en cotas <= 7.0m)",
-        "Evolución (Inundación en cotas <= 10.0m)",
-        "Evolución (Inundación en cotas <= 15.0m)",
-        "11 de Marzo (Pico de inundación registrado)"
-    ]
-    
-    for i, h_val in enumerate(h_steps):
-        if i == 0:
-            # Paso 0: Solo agua preexistente (Febrero)
-            current_water = water_feb
-        elif i == 9:
-            # Paso 9: Agua de Marzo completa
-            current_water = water_mar
-        else:
-            # Pasos intermedios: Agua Feb + Inundación filtrada por altura
-            current_water = water_feb | (inundation & (dem <= h_val))
-            
-        plt.figure(figsize=(10, 8), dpi=150)
-        plt.imshow(rgb)
-        
-        # Superponer la máscara de agua en color cian semi-transparente
-        masked_water = np.ma.masked_where(~current_water, current_water)
-        plt.imshow(masked_water, cmap="winter_r", alpha=0.5)
-        
-        plt.title(f"Evolución: {dates[i]}", fontsize=14, color="#1E3A8A", fontweight="bold")
-        plt.axis("off")
-        plt.tight_layout()
-        plt.savefig(anim_dir / f"frame_{i}.png", bbox_inches='tight', pad_inches=0)
-        plt.close()
-        
-    print("✔️ Fotogramas de transición temporal real/DEM generados.")
-
 if __name__ == "__main__":
     export_rgb_false_color()
     export_mndwi()
     export_dem_and_pop()
     export_inundation_overlay()
     export_dem_simulation_frames()
-    export_temporal_transition_frames()

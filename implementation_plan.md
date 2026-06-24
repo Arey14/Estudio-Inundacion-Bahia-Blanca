@@ -1,103 +1,94 @@
-# Plan de Acción - Trabajo Práctico N° 2 (Teledetección)
+# Plan de Implementación de Mejoras - TP2 Teledetección
 
-Este documento detalla el plan de acción para caracterizar y cuantificar la inundación en Bahía Blanca (2025), estructurado en base a las consignas del TP, la propuesta de trabajo y el estado actual de los datos descargados.
-
----
-
-## 🗂️ Diccionario de Archivos Actuales
-
-A continuación se detalla el contenido y propósito de los archivos y directorios presentes en el espacio de trabajo.
-
-### 1. Directorio: `data-Sentinel-2/`
-Este directorio contiene copias de trabajo y archivos clave de referencia espacial:
-*   **`AOI_20250219_20m_clip.tif`** (57.9 MB): Mosaico Sentinel-2 correspondiente al **19 de febrero de 2025** (antes o inicio del evento). Está recortado al polígono de interés (AOI), remuestreado a **20 metros de resolución** y guardado con compresión DEFLATE. Contiene las 7 bandas seleccionadas en el orden especificado abajo.
-*   **`AOI_20250311_20m_clip.tif`** (60.2 MB): Mosaico Sentinel-2 correspondiente al **11 de marzo de 2025** (post-evento o pico). Mismo procesamiento, recorte y resolución de 20m.
-*   **`aoi.geojson`** / **`aoi-tp2.geojson`** (481 B): Archivos de vectores geográficos que delimitan el Área de Interés (AOI) sobre Bahía Blanca, utilizados para recortar y delimitar los análisis espaciales.
-*   **`TP Teledeteccion 2026.pdf`** (8.0 MB): Consigna original del trabajo práctico.
-
-### 2. Directorio: `sentinel_descargas/`
-Directorio de descarga cruda y procesamiento intermedio del script `Descarga de imágenes.ipynb`:
-*   **`S2B_20HNB_*.tif`** y **`S2B_20HNC_*.tif`**: Archivos de bandas individuales (B02, B03, B04, B08 a 10m y B8A, B11, B12 a 20m) descargados para las cuadrículas Sentinel-2 `20HNB` y `20HNC` para las dos fechas bajo estudio.
-*   **`AOI_20250219.tif`** y **`AOI_20250311.tif`** (~3.2 GB c/u): Mosaicos gigantes resultantes de unir las cuadrículas a su resolución original (sin recortar y sin compresión optimizada).
-*   **`AOI_20250219_20m_clip.tif`** y **`AOI_20250311_20m_clip.tif`** (~57-60 MB c/u): Archivos optimizados listos para análisis (idénticos a los de `data-Sentinel-2/`).
-
-> [!NOTE]
-> **Orden de las bandas en los archivos `_20m_clip.tif`:**
-> 1.  **Banda 1 (B04):** Rojo (Red) - 10m original
-> 2.  **Banda 2 (B03):** Verde (Green) - 10m original
-> 3.  **Banda 3 (B02):** Azul (Blue) - 10m original
-> 4.  **Banda 4 (B8A):** NIR estrecho - 20m original
-> 5.  **Banda 5 (B12):** SWIR 2 - 20m original
-> 6.  **Banda 6 (B08):** NIR amplio - 10m original
-> 7.  **Banda 7 (B11):** SWIR 1 - 20m original
+Este documento detalla el plan de acción propuesto para abordar las mejoras sugeridas en el archivo [Mejoras.md](file:///home/augusto/Desktop/TP2/Mejoras.md) para el Trabajo Práctico N° 2 de Sistemas de Información Geográfica.
 
 ---
 
-## 📋 Plan de Acción Propuesto
+## User Review Required
 
-El desarrollo del trabajo se estructurará en 5 fases secuenciales:
-
-```mermaid
-graph TD
-    A[Fase 1: Preprocesamiento e Índices] --> B[Fase 2: Clasificación de Agua]
-    B --> C[Fase 3: Refinamiento con DEM e IGN]
-    C --> D[Fase 4: Análisis de Población Afectada]
-    D --> E[Fase 5: Validación y Dashboard Interactivo]
-```
-
-### Fase 1: Preprocesamiento y Cálculo de Índices Espectrales
-*   **Objetivo:** Generar capas de índices especializados en la detección de agua para ambas fechas.
-*   **Índices a calcular:**
-    *   **NDWI (Normalized Difference Water Index):**
-        $$\text{NDWI} = \frac{\text{Green} - \text{NIR}}{\text{Green} + \text{NIR}} = \frac{\text{B03} - \text{B08}}{\text{B03} + \text{B08}}$$
-    *   **MNDWI (Modified Normalized Difference Water Index):** Excelente para zonas urbanas, ya que reduce la confusión con la edificación al usar SWIR:
-        $$\text{MNDWI} = \frac{\text{Green} - \text{SWIR1}}{\text{Green} + \text{SWIR1}} = \frac{\text{B03} - \text{B11}}{\text{B03} + \text{B11}}$$
-
-### Fase 2: Detección y Clasificación del Área Inundada (Machine Learning)
-*   **Objetivo:** Clasificar las imágenes usando algoritmos de Machine Learning y calcular el área inundada en hectáreas.
-*   **Estrategia:**
-    1.  **Clasificación Semi-supervisada (Random Forest):** 
-        *   Dado que no disponemos de un dataset de entrenamiento manual, utilizaremos los índices espectrales (NDWI y MNDWI) para seleccionar automáticamente píxeles de entrenamiento de "alta confianza":
-            *   *Agua:* Pixeles con MNDWI > 0.35 y NDWI > 0.3.
-            *   *No Agua/Tierra:* Pixeles con MNDWI < -0.1 y NDWI < 0.0.
-        *   Entrenaremos un modelo de **Random Forest** (usando `scikit-learn`) con las 7 bandas espectrales utilizando estos píxeles de entrenamiento.
-        *   Realizaremos la predicción sobre las dos fechas completas para obtener mapas temáticos robustos.
-    2.  **Clasificación No Supervisada (K-Means):**
-        *   Agruparemos los píxeles de las 7 bandas en $K$ clases (ej. $K=5$ o $K=6$) mediante **K-Means**.
-        *   Identificaremos cuál de los clusters resultantes representa los cuerpos de agua / inundación y compararemos los resultados contra el modelo Random Forest.
-    3.  **Detección de Cambios (Área Inundada):**
-        *   Diferencia: $\text{Inundación} = \text{Agua}_{\text{Marzo}} - \text{Agua}_{\text{Febrero}}$.
-        *   Cálculo del número de hectáreas afectadas dentro del polígono de referencia (`aoi.geojson`).
-
-### Fase 3: Descarga e Integración de Datos de Elevación (DEM) y Filtrado
-*   **Objetivo:** Evitar falsos positivos en zonas altas o laderas montañosas/urbanas usando la topografía.
-*   **Tareas:**
-    1.  Crear un script en Python que consulte la **API pública de OpenTopography** usando los límites espaciales del AOI para descargar de forma automática el **DEM SRTM de 30m** o **Copernicus 30m**.
-    2.  Reproyectar el DEM obtenido al CRS de los GeoTIFFs de Sentinel-2 (UTM 20S) y remuestrearlo a 20 metros.
-    3.  Calcular pendientes (Slope).
-    4.  **Filtrar resultados de inundación:** Descartar píxeles inundados falsos si la elevación o pendiente está por encima de un umbral físicamente imposible para una inundación pluvial/fluvial en la zona baja urbana de Bahía Blanca.
-
-### Fase 4: Descarga de Población (WorldPop) y Análisis de Impacto
-*   **Objetivo:** Calcular la cantidad de población afectada por la inundación.
-*   **Tareas:**
-    1.  Escribir un script que descargue la densidad poblacional de **WorldPop** para Argentina (100 metros de resolución) directamente del servidor oficial utilizando `requests`.
-    2.  Recortar y alinear el raster de población al AOI de Bahía Blanca.
-    3.  Superponer la máscara de inundación limpia (Fase 3) con el raster de población y sumar la población afectada para calcular métricas de impacto social.
-
-### Fase 5: Validación y Dashboard Interactivo
-*   **Objetivo:** Validar y presentar el proyecto de manera visual e interactiva.
-*   **Tareas:**
-    1.  **Descarga e Integración de Hidrología del IGN:** Descargar las capas vectoriales oficiales de espejos y líneas de agua de Bahía Blanca usando el servicio Web Feature Service (WFS) del IGN en Python (`geopandas`).
-    2.  **Validación:** Comparar las máscaras del modelo de ML contra los cuerpos de agua oficiales del IGN y bases de datos externas como **WorldFloods v2** (Hugging Face).
-    3.  **Creación del Dashboard:** Diseñar una interfaz interactiva con **Streamlit** que muestre:
-        *   Un visor de mapas interactivo (Folium/Leafmap) con capas seleccionables (imagen satelital, máscara de inundación, DEM, WorldPop).
-        *   Un panel con métricas clave (hectáreas inundadas totales, estimación de población afectada, comparación de algoritmos K-Means vs Random Forest).
-        *   Comparadores de tipo cortina ("Split map") entre Febrero y Marzo 2025.
+> [!IMPORTANT]
+> **Consumo de recursos en entrenamiento de Embeddings y UNET**:
+> El uso de modelos fundacionales de teledetección como **Prithvi-EO-2.0** (300M de parámetros) y la generación de embeddings con **TESSERA** y **BetaEarth** (emulador de **AlphaEarth**) requieren la instalación de librerías de Deep Learning (`torch`, `transformers`, `terratorch`, `betaearth`) y descargas de pesos de modelos (~1.2 GB en total). El procesamiento se ejecutará en la GPU **RTX 3090** local para garantizar máxima velocidad.
 
 ---
 
-## 🛠️ Plan de Verificación
+## Open Questions
 
-*   **Verificación de Dependencias:** El entorno virtual `.venv` ya está configurado con todos los paquetes necesarios instalados (`scikit-learn`, `geopandas`, `rasterio`, `matplotlib`, `shapely`, `jupyter`, `ipykernel`).
-*   **Ejecución y Testeo:** Correremos scripts en Python paso a paso para verificar las conexiones de descarga y la viabilidad matemática de las clasificaciones.
-*   **Generación de Walkthrough:** Se detallarán los resultados del procesamiento con estadísticas y capturas del visualizador interactivo.
+> [!IMPORTANT]
+> **Pregunta 1: Animación de la crecida de agua**
+> Sentinel-2 tiene una frecuencia de revisión de ~5 días y alta vulnerabilidad a nubes. Acordamos implementar una **combinación de ambos enfoques**:
+> 1.  **Simulación Interactiva por DEM**: Un slider interactivo en el dashboard para controlar la altura teórica del agua en metros sobre el nivel del mar y ver la inundación progresiva de zonas bajas.
+> 2.  **Serie Temporal Real**: Secuencia real animada de las máscaras de inundación clasificadas en las fechas históricas disponibles de febrero y marzo de 2025.
+
+---
+
+## Proposed Changes
+
+A continuación se agrupan los cambios según los componentes del proyecto:
+
+### 1. Actualización de Datos Demográficos
+
+#### [MODIFY] [procesamiento.py](file:///home/augusto/Desktop/TP2/scripts/procesamiento.py)
+*   Cambiar la URL de WorldPop 2020 por el dataset optimizado y proyectado para 2025:
+    `https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/2025/ARG/v1/1km_ua/constrained/arg_pop_2025_CN_1km_R2025A_UA_v1.tif`
+*   Actualizar la lógica de lectura y cálculo del impacto de población para adaptarla al nuevo raster.
+
+---
+
+### 2. Análisis por Componentes Principales (PCA)
+
+#### [MODIFY] [procesamiento.py](file:///home/augusto/Desktop/TP2/scripts/procesamiento.py)
+*   Agregar un módulo de PCA que reduzca las 7 bandas multiespectrales de Sentinel-2 (+ índices MNDWI y NDWI) a los 2 o 3 componentes principales de mayor varianza explicada.
+*   Entrenar modelos Random Forest y K-Means utilizando los componentes principales como características (Features) y comparar el tiempo de ejecución y la exactitud contra el modelo base.
+*   Exportar los resultados de los componentes principales para su representación gráfica.
+
+#### [MODIFY] [dashboard.py](file:///home/augusto/Desktop/TP2/scripts/dashboard.py)
+*   Añadir una sección interactiva de **Análisis PCA** en el dashboard, incluyendo:
+    *   Gráfico de varianza explicada acumulada.
+    *   Diagrama de dispersión 2D (PC1 vs PC2) de una muestra de píxeles, coloreados según la clasificación de agua/tierra, para demostrar la separabilidad espectral de las clases.
+
+---
+
+### 3. Animación de Inundación
+
+#### [MODIFY] [dashboard.py](file:///home/augusto/Desktop/TP2/scripts/dashboard.py)
+*   **Simulador de Inundación (DEM)**: Crear una pestaña interactiva que utilice el DEM de Copernicus. Mediante un slider de Streamlit (ej. de 0 a 30 metros de elevación), se filtrará dinámicamente el terreno con pendiente baja, mostrando en tiempo real la progresión del anegamiento en el mapa interactivo de Bahía Blanca.
+*   **Control de Autoplay**: Agregar un botón de animación automática (Play/Pause) que incremente el nivel del agua secuencialmente para generar el efecto visual de "crecida".
+*   **Visor de la Serie Temporal Real**: Integrar una línea de tiempo (o reproductor GIF) que muestre la evolución real de la mancha de inundación obtenida de las imágenes Sentinel-2 capturadas en febrero y marzo de 2025.
+
+---
+
+### 4. Modelos Avanzados de Deep Learning y Embeddings
+
+#### [NEW] [Modelos_Avanzados_Embeddings.ipynb](file:///home/augusto/Desktop/TP2/notebooks/Modelos_Avanzados_Embeddings.ipynb)
+Crear un cuaderno Jupyter especializado para la evaluación de arquitecturas de Deep Learning:
+*   **Pipeline TESSERA (Cambridge)**:
+    *   Uso de embeddings temporales de reflectancia espectral.
+    *   Alineación de embeddings al AOI y entrenamiento de un clasificador ligero (Random Forest / MLP) sobre el espacio latente.
+*   **Pipeline AlphaEarth / BetaEarth (Emulación local)**:
+    *   Instalar `betaearth` en el entorno virtual.
+    *   Ejecutar el modelo emulador sobre nuestras imágenes para generar embeddings geoespaciales de 64 dimensiones (idénticos en estructura a los de AlphaEarth de Google DeepMind).
+    *   Entrenar un clasificador Random Forest sobre estos embeddings y comparar su capacidad de segmentación.
+*   **Pipeline Prithvi (IBM-NASA)**:
+    *   Descarga e inicialización de `Prithvi-EO-2.0-300M-TL-Sen1Floods11` desde Hugging Face.
+    *   Adaptación de las bandas espectrales de Sentinel-2 al orden y normalización esperados por Prithvi.
+    *   Inferencia zero-shot/fine-tuning en el área de Bahía Blanca.
+*   **Comparación contra UNET**:
+    *   Implementación de una red U-Net sencilla en PyTorch.
+    *   Entrenamiento supervisado utilizando como etiquetas (labels) la máscara refinada del modelo Random Forest actual (aprendizaje por destilación).
+*   **Métricas Comparativas**:
+    *   Generar una tabla y gráficos comparativos de las máscaras de inundación estimadas por: *Random Forest (bandas), RF (PCA), RF (TESSERA), RF (AlphaEarth/BetaEarth), Prithvi-EO-2.0* y *U-Net*.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+*   Ejecución local de `python scripts/procesamiento.py` para asegurar que el pipeline con PCA y WorldPop 2025 finaliza sin errores.
+*   Verificación de la carga del modelo Prithvi e inferencia en PyTorch dentro de un script de prueba.
+
+### Manual Verification
+*   Validación visual de la animación y del gráfico PCA interactivo en la aplicación web de Streamlit ejecutando:
+    ```bash
+    .venv/bin/streamlit run scripts/dashboard.py
+    ```
