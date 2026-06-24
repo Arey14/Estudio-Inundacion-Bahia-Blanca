@@ -367,6 +367,11 @@
                 </button>
             </li>
             <li>
+                <button class="nav-btn" onclick="switchTab(event, 'crecida')">
+                    <span>🎬</span> Simulación de Crecida (DEM)
+                </button>
+            </li>
+            <li>
                 <button class="nav-btn" onclick="switchTab(event, 'soporte')">
                     <span>🧭</span> Datos de Soporte (DEM & Pop)
                 </button>
@@ -469,6 +474,37 @@
             </div>
         </section>
 
+        <!-- SECTION 2B: SIMULACION DE CRECIDA -->
+        <section id="crecida" class="tab-content">
+            <h3 class="section-title" style="margin-top: 0;">Simulación Teórica de Crecida (DEM)</h3>
+            <p style="margin-bottom: 20px; color: var(--text-muted); line-height: 1.5;">Esta simulación permite evaluar de forma teórica qué áreas se verían afectadas si el agua subiera a una altitud determinada (cota sobre el nivel del mar), considerando exclusivamente el relieve de Copernicus DEM (para pendientes bajas &le; 5°).</p>
+            
+            <div class="two-col">
+                <div class="info-box" style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; justify-content: center; height: auto;">
+                    <h3>Controles de Simulación</h3>
+                    <div style="background-color: var(--bg-main); border-radius: 8px; padding: 15px; border: 1px solid var(--border-color); color: var(--text-main);">
+                        <p style="font-weight: 600; margin-bottom: 10px;">💡 **Análisis de Vulnerabilidad**</p>
+                        <p style="font-size: 0.9rem; line-height: 1.5;">Las cuencas bajas del este y los humedales del sur se inundan de forma masiva por debajo de la cota de 6m. La zona urbana central alta está resguardada por su altitud (cota > 20m).</p>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                        <label for="cota-slider" style="font-weight: bold; font-size: 0.95rem;">Seleccionar Cota de Agua: <span id="cota-val" style="color: var(--primary); font-size: 1.1rem;">0</span> m.s.n.m.</label>
+                        <input type="range" id="cota-slider" min="0" max="10" value="0" step="1" style="width: 100%; cursor: pointer;" oninput="updateCota(this.value)">
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button id="play-btn" onclick="togglePlay()" style="flex: 1; padding: 10px; border: none; border-radius: 6px; background-color: var(--primary-light); color: white; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s;">
+                                <span id="play-icon">▶️</span> <span id="play-text">Reproducir Crecida</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <img id="sim-img" class="display-img" src="img/animacion_dem/frame_0.png" alt="Simulación de crecida por DEM">
+                    <p class="img-caption" id="sim-caption">Simulación topográfica a cota 0 m.s.n.m.</p>
+                </div>
+            </div>
+        </section>
+
         <!-- SECTION 3: DATOS DE SOPORTE -->
         <section id="soporte" class="tab-content">
             <h3 class="section-title" style="margin-top: 0;">Topografía y Elevación (Copernicus DEM GLO-30)</h3>
@@ -524,6 +560,52 @@
     <script src="data-Sentinel-2/ign_hydrology.js"></script>
 
     <script>
+        // DEM Simulation logic
+        const alturas = [0, 2, 4, 6, 8, 10, 12, 15, 20, 25, 30];
+        let playInterval = null;
+        let currentStep = 0;
+
+        function updateCota(index) {
+            currentStep = parseInt(index);
+            const hVal = alturas[currentStep];
+            
+            // Update labels
+            document.getElementById('cota-val').innerText = hVal;
+            document.getElementById('cota-slider').value = currentStep;
+            
+            // Update image and caption
+            const simImg = document.getElementById('sim-img');
+            const simCaption = document.getElementById('sim-caption');
+            
+            simImg.src = `img/animacion_dem/frame_${hVal}.png`;
+            simCaption.innerText = `Simulación topográfica a cota ${hVal} m.s.n.m.`;
+        }
+
+        function togglePlay() {
+            const playBtn = document.getElementById('play-btn');
+            const playIcon = document.getElementById('play-icon');
+            const playText = document.getElementById('play-text');
+            
+            if (playInterval) {
+                // Stop animation
+                clearInterval(playInterval);
+                playInterval = null;
+                playIcon.innerText = "▶️";
+                playText.innerText = "Reproducir Crecida";
+                playBtn.style.backgroundColor = "var(--primary-light)";
+            } else {
+                // Start animation
+                playIcon.innerText = "⏸️";
+                playText.innerText = "Pausar Animación";
+                playBtn.style.backgroundColor = "var(--danger)";
+                
+                playInterval = setInterval(() => {
+                    let nextStep = (currentStep + 1) % alturas.length;
+                    updateCota(nextStep);
+                }, 800);
+            }
+        }
+
         // Tab switching logic
         function switchTab(evt, tabId) {
             // Hide all tab contents
@@ -628,6 +710,13 @@
                 return div;
             };
             legend.addTo(mymap);
+
+            // Stop play if slider is touched manually
+            const slider = document.getElementById('cota-slider');
+            if (slider) {
+                slider.addEventListener('mousedown', () => { if (playInterval) togglePlay(); });
+                slider.addEventListener('touchstart', () => { if (playInterval) togglePlay(); });
+            }
         });
     </script>
 </body>
