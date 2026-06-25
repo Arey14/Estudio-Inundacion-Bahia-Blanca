@@ -35,8 +35,8 @@ def main():
         DATA_DIR / "dataset_finetuning" / "val_y.npy"
     )
     
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=2)
+    train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=2)
+    val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=2)
     
     print(f"   ➜ Dataset cargado. {len(train_dataset)} muestras de entrenamiento, {len(val_dataset)} de validación.")
     
@@ -60,8 +60,8 @@ def main():
     best_val_loss = float("inf")
     checkpoint_out_path = DATA_DIR / "unet_finetuned.pt"
     
-    print(f"🚀 Iniciando entrenamiento de U-Net en {device} por 10 épocas...")
-    for epoch in range(10):
+    print(f"🚀 Iniciando entrenamiento de U-Net en {device} por 500 épocas...")
+    for epoch in range(500):
         # Entrenamiento
         unet.train()
         train_loss = 0.0
@@ -78,24 +78,28 @@ def main():
             
         avg_train_loss = train_loss / len(train_loader)
         
-        # Validación
-        unet.eval()
-        val_loss = 0.0
-        with torch.no_grad():
-            for x, y in val_loader:
-                x, y = x.to(device), y.to(device)
-                out = unet(x)
-                loss = dice_loss(out, y) + bce_loss(out, y)
-                val_loss += loss.item()
-                
-        avg_val_loss = val_loss / len(val_loader)
-        print(f"   Época {epoch+1:02d}/10 ➜ Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
-        
-        # Guardar el mejor modelo
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            torch.save(unet.state_dict(), checkpoint_out_path)
-            print(f"   ➜  Guardado mejor checkpoint U-Net (Val Loss: {best_val_loss:.4f})")
+        # Validación (cada 5 épocas o en la última)
+        if (epoch + 1) % 5 == 0 or epoch == 499:
+            unet.eval()
+            val_loss = 0.0
+            with torch.no_grad():
+                for x, y in val_loader:
+                    x, y = x.to(device), y.to(device)
+                    out = unet(x)
+                    loss = dice_loss(out, y) + bce_loss(out, y)
+                    val_loss += loss.item()
+                    
+            avg_val_loss = val_loss / len(val_loader)
+            print(f"   Época {epoch+1:03d}/500 ➜ Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
+            
+            # Guardar el mejor modelo
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                torch.save(unet.state_dict(), checkpoint_out_path)
+                print(f"   ➜  Guardado mejor checkpoint U-Net (Val Loss: {best_val_loss:.4f})")
+        else:
+            if (epoch + 1) % 10 == 0 or epoch == 0:
+                print(f"   Época {epoch+1:03d}/500 ➜ Train Loss: {avg_train_loss:.4f}")
             
     print(f"🎉 Entrenamiento U-Net completado. Pesos guardados en: {checkpoint_out_path}")
 

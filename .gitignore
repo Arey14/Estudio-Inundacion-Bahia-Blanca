@@ -26,3 +26,9 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Heavy datasets and model weights
+data-Sentinel-2/dataset_finetuning/
+data-Sentinel-2/prithvi/
+*.pt
+

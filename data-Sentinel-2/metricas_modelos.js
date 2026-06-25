@@ -19,15 +19,15 @@ window.metricasModelos = {
   },
   "unet": {
     "nombre": "U-Net (Distilaci\u00f3n)",
-    "hectareas": 1448.36,
-    "poblacion": 83,
-    "pixeles": 36209
+    "hectareas": 2138.04,
+    "poblacion": 548,
+    "pixeles": 53451
   },
   "unet_finetuned": {
     "nombre": "U-Net (Ajuste Fino)",
-    "hectareas": 4583.6,
-    "poblacion": 159,
-    "pixeles": 114590
+    "hectareas": 4446.6,
+    "poblacion": 280,
+    "pixeles": 111165
   },
   "prithvi": {
     "nombre": "Prithvi-EO-2.0",
@@ -37,8 +37,8 @@ window.metricasModelos = {
   },
   "prithvi_finetuned": {
     "nombre": "Prithvi (Ajuste Fino)",
-    "hectareas": 355.16,
-    "poblacion": 32,
-    "pixeles": 8879
+    "hectareas": 5869.12,
+    "poblacion": 2897,
+    "pixeles": 146728
   }
 };

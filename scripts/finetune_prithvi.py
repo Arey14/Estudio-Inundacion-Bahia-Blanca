@@ -47,8 +47,8 @@ def main():
         DATA_DIR / "dataset_finetuning" / "val_y.npy"
     )
     
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False, num_workers=2)
+    train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=2)
+    val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=2)
     
     print(f"   ➜ Dataset cargado. {len(train_dataset)} muestras de entrenamiento, {len(val_dataset)} de validación.")
     
@@ -69,17 +69,26 @@ def main():
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     print(f"   ➜ Parámetros entrenables: {len(trainable_params)} / {len(list(model.parameters()))}")
     
-    optimizer = torch.optim.AdamW(trainable_params, lr=1e-4, weight_decay=1e-4)
-    criterion = nn.CrossEntropyLoss()
+    # Calcular pesos de clase para mitigar el fuerte desbalance de clases (tierra vs agua)
+    labels = train_dataset.y
+    num_pos = np.sum(labels == 1)
+    num_neg = np.sum(labels == 0)
+    weight_pos = num_neg / num_pos if num_pos > 0 else 1.0
+    print(f"   ➜ Desbalance de clases: {num_neg} píxeles de tierra, {num_pos} de agua. Peso asignado al agua: {weight_pos:.2f}")
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    class_weights = torch.tensor([1.0, weight_pos], dtype=torch.float32).to(device)
+    
+    optimizer = torch.optim.AdamW(trainable_params, lr=1e-4, weight_decay=1e-4)
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
+    
     model.to(device)
     
     best_val_loss = float("inf")
     checkpoint_out_path = PRITHVI_DIR / "Prithvi-EO-V2-300M-Finetuned.pt"
     
-    print(f"🚀 Iniciando entrenamiento en {device} por 10 épocas...")
-    for epoch in range(10):
+    print(f"🚀 Iniciando entrenamiento en {device} por 500 épocas...")
+    for epoch in range(500):
         # Modo Entrenamiento
         model.train()
         train_loss = 0.0
@@ -97,25 +106,28 @@ def main():
             
         avg_train_loss = train_loss / len(train_loader)
         
-        # Modo Validación
-        model.eval()
-        val_loss = 0.0
-        with torch.no_grad():
-            for x, y in val_loader:
-                x, y = x.to(device), y.to(device)
-                out = model(x)
-                loss = criterion(out.output, y)
-                val_loss += loss.item()
-                
-        avg_val_loss = val_loss / len(val_loader)
-        print(f"   Época {epoch+1:02d}/10 ➜ Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
-        
-        # Guardar mejor checkpoint
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            # Guardamos los pesos del modelo completo de PyTorch Lightning (.state_dict())
-            torch.save(model.state_dict(), checkpoint_out_path)
-            print(f"   ➜  Guardado mejor checkpoint (Val Loss: {best_val_loss:.4f})")
+        # Modo Validación (cada 5 épocas o en la última para velocidad)
+        if (epoch + 1) % 5 == 0 or epoch == 499:
+            model.eval()
+            val_loss = 0.0
+            with torch.no_grad():
+                for x, y in val_loader:
+                    x, y = x.to(device), y.to(device)
+                    out = model(x)
+                    loss = criterion(out.output, y)
+                    val_loss += loss.item()
+                    
+            avg_val_loss = val_loss / len(val_loader)
+            print(f"   Época {epoch+1:03d}/500 ➜ Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
+            
+            # Guardar mejor checkpoint
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                torch.save(model.state_dict(), checkpoint_out_path)
+                print(f"   ➜  Guardado mejor checkpoint (Val Loss: {best_val_loss:.4f})")
+        else:
+            if (epoch + 1) % 10 == 0 or epoch == 0:
+                print(f"   Época {epoch+1:03d}/500 ➜ Train Loss: {avg_train_loss:.4f}")
             
     print(f"🎉 Ajuste Fino completado. Pesos guardados en: {checkpoint_out_path}")
 
