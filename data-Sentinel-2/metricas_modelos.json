@@ -1,27 +1,27 @@
 {
   "rf_base": {
-    "nombre": "Random Forest (Base)",
+    "nombre": "RF (Base)",
     "hectareas": 2219.32,
     "poblacion": 960,
     "pixeles": 55483
   },
   "rf_pca": {
-    "nombre": "Random Forest (3 PCA)",
+    "nombre": "RF (3 PCA)",
     "hectareas": 1441.0,
     "poblacion": 337,
     "pixeles": 36025
   },
   "rf_betaearth": {
-    "nombre": "Random Forest (BetaEarth)",
+    "nombre": "RF (BetaEarth)",
     "hectareas": 2479.12,
     "poblacion": 1306,
     "pixeles": 61978
   },
   "unet": {
     "nombre": "U-Net (Distilaci\u00f3n)",
-    "hectareas": 2138.04,
-    "poblacion": 548,
-    "pixeles": 53451
+    "hectareas": 2077.44,
+    "poblacion": 115,
+    "pixeles": 51936
   },
   "unet_finetuned": {
     "nombre": "U-Net (Ajuste Fino)",

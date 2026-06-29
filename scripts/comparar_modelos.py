@@ -193,7 +193,7 @@ def main():
     pix_rf = int(np.sum(inund_rf))
     ha_rf = float(pix_rf * pixel_area_ha)
     pop_rf = int(np.sum(pop_density[inund_rf]) * 0.0004)
-    results["rf_base"] = {"nombre": "Random Forest (Base)", "hectareas": round(ha_rf, 2), "poblacion": pop_rf, "pixeles": pix_rf}
+    results["rf_base"] = {"nombre": "RF (Base)", "hectareas": round(ha_rf, 2), "poblacion": pop_rf, "pixeles": pix_rf}
     print(f"   ➜ Hectáreas: {ha_rf:.2f} ha, Población afectada: {pop_rf}")
     
     # Guardar máscara RF
@@ -234,7 +234,7 @@ def main():
     pix_pca = int(np.sum(inund_pca))
     ha_pca = float(pix_pca * pixel_area_ha)
     pop_pca = int(np.sum(pop_density[inund_pca]) * 0.0004)
-    results["rf_pca"] = {"nombre": "Random Forest (3 PCA)", "hectareas": round(ha_pca, 2), "poblacion": pop_pca, "pixeles": pix_pca}
+    results["rf_pca"] = {"nombre": "RF (3 PCA)", "hectareas": round(ha_pca, 2), "poblacion": pop_pca, "pixeles": pix_pca}
     print(f"   ➜ Hectáreas: {ha_pca:.2f} ha, Población afectada: {pop_pca}")
     
     # Guardar máscara PCA
@@ -293,7 +293,7 @@ def main():
     pix_emb = int(np.sum(inund_emb))
     ha_emb = float(pix_emb * pixel_area_ha)
     pop_emb = int(np.sum(pop_density[inund_emb]) * 0.0004)
-    results["rf_betaearth"] = {"nombre": "Random Forest (BetaEarth)", "hectareas": round(ha_emb, 2), "poblacion": pop_emb, "pixeles": pix_emb}
+    results["rf_betaearth"] = {"nombre": "RF (BetaEarth)", "hectareas": round(ha_emb, 2), "poblacion": pop_emb, "pixeles": pix_emb}
     print(f"   ➜ Hectáreas: {ha_emb:.2f} ha, Población afectada: {pop_emb}")
     
     # Guardar máscara BetaEarth
