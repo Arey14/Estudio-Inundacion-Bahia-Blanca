@@ -86,6 +86,33 @@ def get_ign_water_mask(img_shape, ref_crs, ref_transform):
             print(f"⚠️ Error al rasterizar hidrología IGN: {e}")
     return ign_water_mask
 
+def calculate_metrics_dict(inund_raw, inund_filtered, consensus_mask, pop_density, pixel_area_ha):
+    pix_raw = int(np.sum(inund_raw))
+    ha_raw = float(pix_raw * pixel_area_ha)
+    pop_raw = int(np.sum(pop_density[inund_raw]) * 0.0004)
+    
+    pix_filt = int(np.sum(inund_filtered))
+    ha_filt = float(pix_filt * pixel_area_ha)
+    pop_filt = int(np.sum(pop_density[inund_filtered]) * 0.0004)
+    
+    intersection = np.sum(inund_filtered & consensus_mask)
+    union = np.sum(inund_filtered | consensus_mask)
+    iou = float(intersection / union) if union > 0 else 0.0
+    
+    sum_mask = np.sum(inund_filtered) + np.sum(consensus_mask)
+    dice = float((2.0 * intersection) / sum_mask) if sum_mask > 0 else 0.0
+    
+    return {
+        "hectareas": round(ha_filt, 2),
+        "poblacion": pop_filt,
+        "pixeles": pix_filt,
+        "hectareas_sin_dem": round(ha_raw, 2),
+        "poblacion_sin_dem": pop_raw,
+        "pixeles_sin_dem": pix_raw,
+        "iou_consenso": round(iou, 4),
+        "dice_consenso": round(dice, 4)
+    }
+
 # ----------------------------------------------------------------------
 # 2. Dataset y Entrenamiento de Modelos
 # ----------------------------------------------------------------------
@@ -186,15 +213,19 @@ def main():
     water_mar_rf = rf_base.predict(X_all_mar_base).reshape(H, W)
     
     # Inundación final
-    inund_rf = (water_mar_rf > 0) & ~(water_feb_rf > 0)
-    inund_rf = apply_topographic_filter(inund_rf, DEM_PATH)
-    inund_rf = inund_rf & (~ign_water_mask)
+    inund_rf_raw = (water_mar_rf > 0) & ~(water_feb_rf > 0)
+    inund_rf_raw = inund_rf_raw & (~ign_water_mask)
     
-    pix_rf = int(np.sum(inund_rf))
-    ha_rf = float(pix_rf * pixel_area_ha)
-    pop_rf = int(np.sum(pop_density[inund_rf]) * 0.0004)
-    results["rf_base"] = {"nombre": "RF (Base)", "hectareas": round(ha_rf, 2), "poblacion": pop_rf, "pixeles": pix_rf}
-    print(f"   ➜ Hectáreas: {ha_rf:.2f} ha, Población afectada: {pop_rf}")
+    inund_rf = apply_topographic_filter(inund_rf_raw, DEM_PATH)
+    
+    # Definir máscara de Consenso de Alta Confianza
+    consensus_mask = inund_rf & (mndwi_mar > 0.25)
+    
+    results["rf_base"] = {
+        "nombre": "RF (Base)",
+        **calculate_metrics_dict(inund_rf_raw, inund_rf, consensus_mask, pop_density, pixel_area_ha)
+    }
+    print(f"   ➜ Hectáreas (con DEM): {results['rf_base']['hectareas']:.2f} ha, Sin DEM: {results['rf_base']['hectareas_sin_dem']:.2f} ha")
     
     # Guardar máscara RF
     with rasterio.open(IMG_MAR) as src:
@@ -227,15 +258,16 @@ def main():
     water_feb_pca = rf_pca.predict(X_pca_feb).reshape(H, W)
     water_mar_pca = rf_pca.predict(X_pca_mar).reshape(H, W)
     
-    inund_pca = (water_mar_pca > 0) & ~(water_feb_pca > 0)
-    inund_pca = apply_topographic_filter(inund_pca, DEM_PATH)
-    inund_pca = inund_pca & (~ign_water_mask)
+    inund_pca_raw = (water_mar_pca > 0) & ~(water_feb_pca > 0)
+    inund_pca_raw = inund_pca_raw & (~ign_water_mask)
     
-    pix_pca = int(np.sum(inund_pca))
-    ha_pca = float(pix_pca * pixel_area_ha)
-    pop_pca = int(np.sum(pop_density[inund_pca]) * 0.0004)
-    results["rf_pca"] = {"nombre": "RF (3 PCA)", "hectareas": round(ha_pca, 2), "poblacion": pop_pca, "pixeles": pix_pca}
-    print(f"   ➜ Hectáreas: {ha_pca:.2f} ha, Población afectada: {pop_pca}")
+    inund_pca = apply_topographic_filter(inund_pca_raw, DEM_PATH)
+    
+    results["rf_pca"] = {
+        "nombre": "RF (3 PCA)",
+        **calculate_metrics_dict(inund_pca_raw, inund_pca, consensus_mask, pop_density, pixel_area_ha)
+    }
+    print(f"   ➜ Hectáreas (con DEM): {results['rf_pca']['hectareas']:.2f} ha, Sin DEM: {results['rf_pca']['hectareas_sin_dem']:.2f} ha")
     
     # Guardar máscara PCA
     with rasterio.open(DATA_DIR / "inundacion_rf_pca.tif", "w", **profile) as dst:
@@ -286,15 +318,16 @@ def main():
     water_feb_emb = rf_emb.predict(emb_feb_flat).reshape(H, W)
     water_mar_emb = rf_emb.predict(emb_mar_flat).reshape(H, W)
     
-    inund_emb = (water_mar_emb > 0) & ~(water_feb_emb > 0)
-    inund_emb = apply_topographic_filter(inund_emb, DEM_PATH)
-    inund_emb = inund_emb & (~ign_water_mask)
+    inund_emb_raw = (water_mar_emb > 0) & ~(water_feb_emb > 0)
+    inund_emb_raw = inund_emb_raw & (~ign_water_mask)
     
-    pix_emb = int(np.sum(inund_emb))
-    ha_emb = float(pix_emb * pixel_area_ha)
-    pop_emb = int(np.sum(pop_density[inund_emb]) * 0.0004)
-    results["rf_betaearth"] = {"nombre": "RF (BetaEarth)", "hectareas": round(ha_emb, 2), "poblacion": pop_emb, "pixeles": pix_emb}
-    print(f"   ➜ Hectáreas: {ha_emb:.2f} ha, Población afectada: {pop_emb}")
+    inund_emb = apply_topographic_filter(inund_emb_raw, DEM_PATH)
+    
+    results["rf_betaearth"] = {
+        "nombre": "RF (BetaEarth)",
+        **calculate_metrics_dict(inund_emb_raw, inund_emb, consensus_mask, pop_density, pixel_area_ha)
+    }
+    print(f"   ➜ Hectáreas (con DEM): {results['rf_betaearth']['hectareas']:.2f} ha, Sin DEM: {results['rf_betaearth']['hectareas_sin_dem']:.2f} ha")
     
     # Guardar máscara BetaEarth
     with rasterio.open(DATA_DIR / "inundacion_rf_betaearth.tif", "w", **profile) as dst:
@@ -357,15 +390,16 @@ def main():
     water_feb_unet = unet_predict(img_stack_feb)
     water_mar_unet = unet_predict(img_stack_mar)
     
-    inund_unet = (water_mar_unet > 0) & ~(water_feb_unet > 0)
-    inund_unet = apply_topographic_filter(inund_unet, DEM_PATH)
-    inund_unet = inund_unet & (~ign_water_mask)
+    inund_unet_raw = (water_mar_unet > 0) & ~(water_feb_unet > 0)
+    inund_unet_raw = inund_unet_raw & (~ign_water_mask)
     
-    pix_unet = int(np.sum(inund_unet))
-    ha_unet = float(pix_unet * pixel_area_ha)
-    pop_unet = int(np.sum(pop_density[inund_unet]) * 0.0004)
-    results["unet"] = {"nombre": "U-Net (Distilación)", "hectareas": round(ha_unet, 2), "poblacion": pop_unet, "pixeles": pix_unet}
-    print(f"   ➜ Hectáreas: {ha_unet:.2f} ha, Población afectada: {pop_unet}")
+    inund_unet = apply_topographic_filter(inund_unet_raw, DEM_PATH)
+    
+    results["unet"] = {
+        "nombre": "U-Net (Distilación)",
+        **calculate_metrics_dict(inund_unet_raw, inund_unet, consensus_mask, pop_density, pixel_area_ha)
+    }
+    print(f"   ➜ Hectáreas (con DEM): {results['unet']['hectareas']:.2f} ha, Sin DEM: {results['unet']['hectareas_sin_dem']:.2f} ha")
     
     # Guardar máscara U-Net
     with rasterio.open(DATA_DIR / "inundacion_unet.tif", "w", **profile) as dst:
@@ -396,15 +430,16 @@ def main():
         water_feb_unet_ft = unet_ft_predict(img_stack_feb)
         water_mar_unet_ft = unet_ft_predict(img_stack_mar)
         
-        inund_unet_ft = (water_mar_unet_ft > 0) & ~(water_feb_unet_ft > 0)
-        inund_unet_ft = apply_topographic_filter(inund_unet_ft, DEM_PATH)
-        inund_unet_ft = inund_unet_ft & (~ign_water_mask)
+        inund_unet_ft_raw = (water_mar_unet_ft > 0) & ~(water_feb_unet_ft > 0)
+        inund_unet_ft_raw = inund_unet_ft_raw & (~ign_water_mask)
         
-        pix_unet_ft = int(np.sum(inund_unet_ft))
-        ha_unet_ft = float(pix_unet_ft * pixel_area_ha)
-        pop_unet_ft = int(np.sum(pop_density[inund_unet_ft]) * 0.0004)
-        results["unet_finetuned"] = {"nombre": "U-Net (Ajuste Fino)", "hectareas": round(ha_unet_ft, 2), "poblacion": pop_unet_ft, "pixeles": pix_unet_ft}
-        print(f"   ➜ Hectáreas: {ha_unet_ft:.2f} ha, Población afectada: {pop_unet_ft}")
+        inund_unet_ft = apply_topographic_filter(inund_unet_ft_raw, DEM_PATH)
+        
+        results["unet_finetuned"] = {
+            "nombre": "U-Net (Ajuste Fino)",
+            **calculate_metrics_dict(inund_unet_ft_raw, inund_unet_ft, consensus_mask, pop_density, pixel_area_ha)
+        }
+        print(f"   ➜ Hectáreas (con DEM): {results['unet_finetuned']['hectareas']:.2f} ha, Sin DEM: {results['unet_finetuned']['hectareas_sin_dem']:.2f} ha")
         
         with rasterio.open(DATA_DIR / "inundacion_unet_finetuned.tif", "w", **profile) as dst:
             dst.write(inund_unet_ft.astype(np.uint8), 1)
@@ -448,15 +483,16 @@ def main():
         print("   ➜ Prediciendo con Prithvi (Febrero)...")
         water_feb_prithvi = run_prithvi(bands_feb, doy=50)
         
-        inund_prithvi = (water_mar_prithvi > 0) & ~(water_feb_prithvi > 0)
-        inund_prithvi = apply_topographic_filter(inund_prithvi, DEM_PATH)
-        inund_prithvi = inund_prithvi & (~ign_water_mask)
+        inund_prithvi_raw = (water_mar_prithvi > 0) & ~(water_feb_prithvi > 0)
+        inund_prithvi_raw = inund_prithvi_raw & (~ign_water_mask)
         
-        pix_prithvi = int(np.sum(inund_prithvi))
-        ha_prithvi = float(pix_prithvi * pixel_area_ha)
-        pop_prithvi = int(np.sum(pop_density[inund_prithvi]) * 0.0004)
-        results["prithvi"] = {"nombre": "Prithvi-EO-2.0", "hectareas": round(ha_prithvi, 2), "poblacion": pop_prithvi, "pixeles": pix_prithvi}
-        print(f"   ➜ Hectáreas: {ha_prithvi:.2f} ha, Población afectada: {pop_prithvi}")
+        inund_prithvi = apply_topographic_filter(inund_prithvi_raw, DEM_PATH)
+        
+        results["prithvi"] = {
+            "nombre": "Prithvi-EO-2.0",
+            **calculate_metrics_dict(inund_prithvi_raw, inund_prithvi, consensus_mask, pop_density, pixel_area_ha)
+        }
+        print(f"   ➜ Hectáreas (con DEM): {results['prithvi']['hectareas']:.2f} ha, Sin DEM: {results['prithvi']['hectareas_sin_dem']:.2f} ha")
         
         # Guardar máscara Prithvi
         with rasterio.open(DATA_DIR / "inundacion_prithvi.tif", "w", **profile) as dst:
@@ -495,27 +531,43 @@ def main():
             print("   ➜ Prediciendo con Prithvi Ajustada (Febrero)...")
             water_feb_prithvi_ft = run_prithvi_ft(bands_feb, doy=50)
             
-            inund_prithvi_ft = (water_mar_prithvi_ft > 0) & ~(water_feb_prithvi_ft > 0)
-            inund_prithvi_ft = apply_topographic_filter(inund_prithvi_ft, DEM_PATH)
-            inund_prithvi_ft = inund_prithvi_ft & (~ign_water_mask)
+            inund_prithvi_ft_raw = (water_mar_prithvi_ft > 0) & ~(water_feb_prithvi_ft > 0)
+            inund_prithvi_ft_raw = inund_prithvi_ft_raw & (~ign_water_mask)
             
-            pix_prithvi_ft = int(np.sum(inund_prithvi_ft))
-            ha_prithvi_ft = float(pix_prithvi_ft * pixel_area_ha)
-            pop_prithvi_ft = int(np.sum(pop_density[inund_prithvi_ft]) * 0.0004)
-            results["prithvi_finetuned"] = {"nombre": "Prithvi (Ajuste Fino)", "hectareas": round(ha_prithvi_ft, 2), "poblacion": pop_prithvi_ft, "pixeles": pix_prithvi_ft}
-            print(f"   ➜ Hectáreas: {ha_prithvi_ft:.2f} ha, Población afectada: {pop_prithvi_ft}")
+            inund_prithvi_ft = apply_topographic_filter(inund_prithvi_ft_raw, DEM_PATH)
+            
+            results["prithvi_finetuned"] = {
+                "nombre": "Prithvi (Ajuste Fino)",
+                **calculate_metrics_dict(inund_prithvi_ft_raw, inund_prithvi_ft, consensus_mask, pop_density, pixel_area_ha)
+            }
+            print(f"   ➜ Hectáreas (con DEM): {results['prithvi_finetuned']['hectareas']:.2f} ha, Sin DEM: {results['prithvi_finetuned']['hectareas_sin_dem']:.2f} ha")
             
             with rasterio.open(DATA_DIR / "inundacion_prithvi_finetuned.tif", "w", **profile) as dst:
                 dst.write(inund_prithvi_ft.astype(np.uint8), 1)
         except Exception as e_ft:
             print(f"⚠️ Error al ejecutar Prithvi Ajustada: {e_ft}")
-            results["prithvi_finetuned"] = {"nombre": "Prithvi (Ajuste Fino)", "hectareas": 0.0, "poblacion": 0, "pixeles": 0}
+            results["prithvi_finetuned"] = {
+                "nombre": "Prithvi (Ajuste Fino)",
+                "hectareas": 0.0, "poblacion": 0, "pixeles": 0,
+                "hectareas_sin_dem": 0.0, "poblacion_sin_dem": 0, "pixeles_sin_dem": 0,
+                "iou_consenso": 0.0, "dice_consenso": 0.0
+            }
             
     except Exception as e:
         print(f"⚠️ Error al ejecutar Prithvi: {e}")
         # Fallback en caso de error
-        results["prithvi"] = {"nombre": "Prithvi-EO-2.0", "hectareas": 0.0, "poblacion": 0, "pixeles": 0}
-        results["prithvi_finetuned"] = {"nombre": "Prithvi (Ajuste Fino)", "hectareas": 0.0, "poblacion": 0, "pixeles": 0}
+        results["prithvi"] = {
+            "nombre": "Prithvi-EO-2.0",
+            "hectareas": 0.0, "poblacion": 0, "pixeles": 0,
+            "hectareas_sin_dem": 0.0, "poblacion_sin_dem": 0, "pixeles_sin_dem": 0,
+            "iou_consenso": 0.0, "dice_consenso": 0.0
+        }
+        results["prithvi_finetuned"] = {
+            "nombre": "Prithvi (Ajuste Fino)",
+            "hectareas": 0.0, "poblacion": 0, "pixeles": 0,
+            "hectareas_sin_dem": 0.0, "poblacion_sin_dem": 0, "pixeles_sin_dem": 0,
+            "iou_consenso": 0.0, "dice_consenso": 0.0
+        }
 
     # ------------------------------------------------------------------
     # 4. Guardar Métricas e Gráficas Comparativas
@@ -531,27 +583,37 @@ def main():
     print("🎨 Generando gráfica comparativa...")
     model_names = [results[k]["nombre"] for k in results]
     hectareas = [results[k]["hectareas"] for k in results]
+    hectareas_sin_dem = [results[k]["hectareas_sin_dem"] for k in results]
     poblaciones = [results[k]["poblacion"] for k in results]
     
-    fig, ax1 = plt.subplots(figsize=(10, 6), dpi=150)
+    fig, ax1 = plt.subplots(figsize=(12, 7), dpi=150)
     
-    color = '#1E3A8A'
+    x = np.arange(len(model_names))
+    width = 0.35
+    
+    color_dem = '#1E3A8A'
+    color_nodem = '#3B82F6'
+    
     ax1.set_xlabel('Modelos de Clasificación', fontweight='bold', labelpad=15)
-    ax1.set_ylabel('Hectáreas Inundadas (ha)', color=color, fontweight='bold')
-    bars1 = ax1.bar(np.arange(len(model_names)) - 0.2, hectareas, width=0.4, color=color, label='Hectáreas')
-    ax1.tick_params(axis='y', labelcolor=color)
+    ax1.set_ylabel('Hectáreas Inundadas (ha)', color='#1E3A8A', fontweight='bold')
     
-    # Crear segundo eje para población
+    bars1 = ax1.bar(x - width/2, hectareas, width, color=color_dem, label='Con Filtro DEM')
+    bars2 = ax1.bar(x + width/2, hectareas_sin_dem, width, color=color_nodem, label='Sin Filtro DEM')
+    
+    ax1.tick_params(axis='y', labelcolor='#1E3A8A')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(model_names, rotation=15, ha='right')
+    ax1.legend(loc='upper left')
+    
+    # Crear un segundo eje Y para mostrar la población expuesta (Con DEM)
     ax2 = ax1.twinx()
-    color = '#EF4444'
-    ax2.set_ylabel('Población Afectada (personas)', color=color, fontweight='bold')
-    bars2 = ax2.bar(np.arange(len(model_names)) + 0.2, poblaciones, width=0.4, color=color, label='Población')
-    ax2.tick_params(axis='y', labelcolor=color)
+    color_pop = '#EF4444'
+    ax2.set_ylabel('Población Afectada - Con DEM (personas)', color=color_pop, fontweight='bold')
+    line_pop = ax2.plot(x, poblaciones, color=color_pop, marker='o', linewidth=2.5, markersize=8, label='Población (Con DEM)')
+    ax2.tick_params(axis='y', labelcolor=color_pop)
+    ax2.legend(loc='upper right')
     
-    plt.xticks(np.arange(len(model_names)), model_names, rotation=15, ha='right')
-    ax1.set_xticklabels(model_names)
-    
-    plt.title('Comparación Cuantitativa de Modelos y Embeddings', fontweight='bold', fontsize=14, pad=20)
+    plt.title('Impacto del Filtro DEM: Hectáreas Inundadas y Población Expuesta', fontweight='bold', fontsize=14, pad=20)
     fig.tight_layout()
     plt.savefig(IMG_DIR / "comparacion_metricas_modelos.png", bbox_inches='tight')
     plt.close()

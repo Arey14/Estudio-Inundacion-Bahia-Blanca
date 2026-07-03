@@ -3,42 +3,77 @@
     "nombre": "RF (Base)",
     "hectareas": 2219.32,
     "poblacion": 960,
-    "pixeles": 55483
+    "pixeles": 55483,
+    "hectareas_sin_dem": 3261.0,
+    "poblacion_sin_dem": 1261,
+    "pixeles_sin_dem": 81525,
+    "iou_consenso": 0.6968,
+    "dice_consenso": 0.8213
   },
   "rf_pca": {
     "nombre": "RF (3 PCA)",
     "hectareas": 1441.0,
     "poblacion": 337,
-    "pixeles": 36025
+    "pixeles": 36025,
+    "hectareas_sin_dem": 1504.16,
+    "poblacion_sin_dem": 361,
+    "pixeles_sin_dem": 37604,
+    "iou_consenso": 0.3639,
+    "dice_consenso": 0.5336
   },
   "rf_betaearth": {
     "nombre": "RF (BetaEarth)",
     "hectareas": 2479.12,
     "poblacion": 1306,
-    "pixeles": 61978
+    "pixeles": 61978,
+    "hectareas_sin_dem": 2909.52,
+    "poblacion_sin_dem": 1415,
+    "pixeles_sin_dem": 72738,
+    "iou_consenso": 0.3764,
+    "dice_consenso": 0.5469
   },
   "unet": {
     "nombre": "U-Net (Distilaci\u00f3n)",
-    "hectareas": 2077.44,
-    "poblacion": 115,
-    "pixeles": 51936
+    "hectareas": 1264.16,
+    "poblacion": 529,
+    "pixeles": 31604,
+    "hectareas_sin_dem": 1933.12,
+    "poblacion_sin_dem": 688,
+    "pixeles_sin_dem": 48328,
+    "iou_consenso": 0.436,
+    "dice_consenso": 0.6072
   },
   "unet_finetuned": {
     "nombre": "U-Net (Ajuste Fino)",
     "hectareas": 4446.6,
     "poblacion": 280,
-    "pixeles": 111165
+    "pixeles": 111165,
+    "hectareas_sin_dem": 4447.44,
+    "poblacion_sin_dem": 280,
+    "pixeles_sin_dem": 111186,
+    "iou_consenso": 0.3375,
+    "dice_consenso": 0.5047
   },
   "prithvi": {
     "nombre": "Prithvi-EO-2.0",
     "hectareas": 8966.56,
     "poblacion": 1874,
-    "pixeles": 224164
+    "pixeles": 224164,
+    "hectareas_sin_dem": 10928.88,
+    "poblacion_sin_dem": 2382,
+    "pixeles_sin_dem": 273222,
+    "iou_consenso": 0.1692,
+    "dice_consenso": 0.2895
   },
   "prithvi_finetuned": {
     "nombre": "Prithvi (Ajuste Fino)",
     "hectareas": 5869.12,
     "poblacion": 2897,
-    "pixeles": 146728
+    "pixeles": 146728,
+    "hectareas_sin_dem": 8687.92,
+    "poblacion_sin_dem": 3541,
+    "pixeles_sin_dem": 217198,
+    "iou_consenso": 0.1123,
+    "dice_consenso": 0.2019
   }
 }

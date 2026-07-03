@@ -481,9 +481,13 @@
                     <thead>
                         <tr style="background-color: var(--primary); color: white; text-align: left; height: 50px;">
                             <th style="padding: 10px 20px;">Modelo de Clasificación</th>
-                            <th style="padding: 10px 20px;">Hectáreas Detectadas</th>
-                            <th style="padding: 10px 20px;">Población Afectada Estimada</th>
-                            <th style="padding: 10px 20px;">Píxeles Detectados</th>
+                            <th style="padding: 10px 20px;">Hectáreas (Con DEM)</th>
+                            <th style="padding: 10px 20px;">Hectáreas (Sin DEM)</th>
+                            <th style="padding: 10px 20px;">Diferencia (ha)</th>
+                            <th style="padding: 10px 20px;">Jaccard IoU</th>
+                            <th style="padding: 10px 20px;">Dice Coeff.</th>
+                            <th style="padding: 10px 20px;">Población (Con DEM)</th>
+                            <th style="padding: 10px 20px;">Población (Sin DEM)</th>
                         </tr>
                     </thead>
                     <tbody id="model-comparison-tbody">
@@ -517,18 +521,48 @@
             </div>
 
             <h3 class="section-title" style="margin-top: 30px;">Análisis Técnico y Lecciones Aprendidas</h3>
-            <div class="info-box" style="margin-top: 15px;">
-                <h3>Puntos Clave del Análisis:</h3>
-                <ul>
-                    <li><strong>Random Forest Base (9 features):</strong> Sirve como nuestra base sólida. Al ser un clasificador pixel-a-pixel, tiende a presentar ruido espacial (falsos positivos puntuales) pero captura bien los bordes del agua en alta reflectancia.</li>
-                    <li><strong>Random Forest con PCA (3 Componentes):</strong> Al consolidar &gt;98% de la varianza en 3 dimensiones, el clasificador opera sobre un espacio denso y no correlacionado, reduciendo el ruido de la clasificación. Al corregirse el domain shift (aplicando el escalador y PCA de Marzo a Febrero), se observan métricas estables.</li>
-                    <li><strong>Embeddings de BetaEarth (AlphaEarth 64D):</strong> Al incorporar un contexto local denso (a través del codificador auto-supervisado de Google DeepMind), el clasificador RF en los embeddings genera áreas de inundación muy cohesivas y continuas, minimizando falsos positivos en zonas de suelos mixtos húmedos.</li>
-                    <li><strong>U-Net (PyTorch - Destilación):</strong> La arquitectura convolucional (ResNet34 backbone) suaviza los bordes y rellena lagunas, adaptándose mejor al relieve topográfico gracias a su campo receptivo espacial. Es muy efectiva para regularizar clasificaciones ruidosas.</li>
-                    <li><strong>Prithvi-EO-2.0 (IBM/NASA):</strong> Muestra una excelente transferencia zero-shot. Al estar entrenado masivamente para flood segmentation (Sen1Floods11), discrimina de forma precisa entre reflectancia del agua real y suelos fangosos de llanura baja.</li>
-                    <li><strong>Ajuste Fino Local (Fine-Tuning en GPU RTX 3090):</strong> El fine-tuning local usando parches de Sentinel-2 y pseudo-etiquetas de alta confianza demostró ser una mejora crítica. En el caso de <strong>Prithvi</strong>, el modelo ajustado redujo la estimación de 8966 ha a 355 ha, eliminando por completo los falsos positivos por saturación en campos agrícolas periféricos y concentrándose únicamente en el agua estancada y las cuencas desbordadas reales.</li>
-                    <li><strong>Exclusión de TESSERA (Cambridge):</strong> Aunque se evaluó su uso (librería <code>geotessera</code>), este modelo está diseñado para generar embeddings <strong>anuales consolidados</strong> (un resumen de todo un año de datos de satélite). Al ser una inundación un evento transitorio y rápido de pocos días en Feb/Mar de 2025, un promedio anual diluye completamente la firma del agua, impidiendo detectar la crecida.</li>
-                </ul>
-            </div>
+            
+            <details class="tech-detail-card" style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <summary style="font-weight: 600; color: var(--primary); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; outline: none; list-style: none;">
+                    <span>🛡️</span> Defensa y Explicación de los Modelos (¿Qué hace cada uno?)
+                </summary>
+                <div style="margin-top: 15px; font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; cursor: default;">
+                    <ul>
+                        <li style="margin-bottom: 8px;"><strong>RF (Base):</strong> Clasificador tradicional pixel-a-pixel. Se entrena con reflectancia multiespectral básica y dos índices de agua. Es rápido pero muy susceptible al ruido del suelo y las sombras (sal y pimienta) porque no analiza la estructura espacial de los píxeles adyacentes.</li>
+                        <li style="margin-bottom: 8px;"><strong>RF (3 PCA):</strong> Reduce la dimensionalidad del dataset multiespectral de 7 bandas a 3 componentes principales (capturando el 98.97% de la varianza). Al remover ruido y componentes de correlación mutua, genera mapas de inundación más compactos pero pierde píxeles húmedos marginales.</li>
+                        <li style="margin-bottom: 8px;"><strong>RF (BetaEarth):</strong> Emplea representaciones latentes geoespaciales de 64 dimensiones. Dado que los embeddings provienen de un codificador espacial pre-entrenado, capturan el contexto de vecindad de cada píxel, logrando delimitar zonas de inundación con excelente cohesión geográfica.</li>
+                        <li style="margin-bottom: 8px;"><strong>U-Net (Distilación):</strong> Red convolucional entrenada para replicar el output de Random Forest base. Actúa como un filtro de regularización convolucional (campo receptivo de 256x256), rellenando lagunas y suavizando bordes ruidosos.</li>
+                        <li style="margin-bottom: 8px;"><strong>U-Net (Ajuste Fino):</strong> Red convolucional entrenada desde cero con parches locales y pseudo-etiquetas de alta confianza. Logra generalizar de forma sobresaliente las formas y estructuras de canales fluviales y valles de inundación.</li>
+                        <li style="margin-bottom: 8px;"><strong>Prithvi-EO-2.0:</strong> Modelo fundacional transformador de 300M de parámetros pre-entrenado por IBM/NASA en inundaciones generales (Sen1Floods11). Posee un umbral espacial/espectral muy genérico y sensible al agua, logrando alta exhaustividad pero también falsos positivos.</li>
+                        <li style="margin-bottom: 8px;"><strong>Prithvi (Ajuste Fino):</strong> El transformador fundacional adaptado con congelamiento de encoder (backbone ViT) y pesos balanceados (47.83x para agua) sobre parches locales. Especializa su decodificador en la reflectancia y geomorfología específica del suelo de Bahía Blanca.</li>
+                    </ul>
+                </div>
+            </details>
+            
+            <details class="tech-detail-card" style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <summary style="font-weight: 600; color: var(--primary); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; outline: none; list-style: none;">
+                    <span>📊</span> Explicación Física de las Discrepancias (¿Por qué difieren tanto?)
+                </summary>
+                <div style="margin-top: 15px; font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; cursor: default;">
+                    <ol>
+                        <li style="margin-bottom: 8px;"><strong>La sobreestimación de Prithvi Zero-Shot (8,966 ha):</strong> Al ser un modelo fundacional entrenado a escala global, confunde la alta reflectancia húmeda de los suelos arcillosos y costeros planos de Bahía Blanca con agua estancada inundada. Al no tener calibración local, el modelo clasifica cualquier zona con alta humedad en el suelo como inundación.</li>
+                        <li style="margin-bottom: 8px;"><strong>El colapso por desbalance de clases:</strong> En los primeros intentos de ajuste fino, los modelos colapsaban a clasificar todo como tierra (dando 355 ha) porque el agua representa menos del 3% de los píxeles totales de la zona. Al aplicar <strong>pesos de clase balanceados (47.83x)</strong> en Prithvi y una pérdida combinada Dice+BCE en U-Net, los modelos aprendieron a optimizar la detección del agua sin dejarse engañar por la clase mayoritaria (tierra).</li>
+                        <li style="margin-bottom: 8px;"><strong>Efecto del Filtro DEM:</strong> El Modelo Digital de Elevación (DEM) de Copernicus remueve de forma contundente sombras de nubes, laderas empinadas orientadas al sur y falsos positivos en zonas urbanas elevadas, reduciendo el área a su llanura de inundación fluvial real.</li>
+                    </ol>
+                </div>
+            </details>
+            
+            <details class="tech-detail-card" style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <summary style="font-weight: 600; color: var(--primary); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; outline: none; list-style: none;">
+                    <span>🌍</span> BetaEarth vs. AlphaEarth (Google DeepMind)
+                </summary>
+                <div style="margin-top: 15px; font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; cursor: default;">
+                    <ul>
+                        <li style="margin-bottom: 8px;"><strong>AlphaEarth Foundations (AEF):</strong> Es un modelo cerrado y propietario desarrollado por Google DeepMind que genera embeddings geoespaciales de 64 dimensiones para cualquier ubicación terrestre a 10m de resolución. Dado que el modelo no ha sido liberado al público y solo sus embeddings precalculados en Google Earth Engine están disponibles, no es posible ejecutarlo de forma local o directa en nuestro pipeline offline.</li>
+                        <li style="margin-bottom: 8px;"><strong>BetaEarth (Asterisk Labs):</strong> Es un emulador e interpolador de código abierto entrenado de forma supervisada para imitar los embeddings de AlphaEarth a partir de imágenes Sentinel-1 y Sentinel-2 estándares. Nos permite generar embeddings locales de 64D en nuestra máquina para las fechas específicas del evento (<strong>Febrero y Marzo de 2025</strong>) y entrenar clasificadores de Machine Learning sobre ellos de forma autónoma.</li>
+                    </ul>
+                </div>
+            </details>
         </section>
 
         <!-- SECTION 2: COMPARACION SENTINEL-2 -->
@@ -565,7 +599,18 @@
         <!-- SECTION 2B: SIMULACION DE CRECIDA -->
         <section id="crecida" class="tab-content">
             <h3 class="section-title" style="margin-top: 0;">Simulación Teórica de Crecida (DEM)</h3>
-            <p style="margin-bottom: 20px; color: var(--text-muted); line-height: 1.5;">Esta simulación permite evaluar de forma teórica qué áreas se verían afectadas si el agua subiera a una altitud determinada (cota sobre el nivel del mar), considerando exclusivamente el relieve de Copernicus DEM (para pendientes bajas &le; 5°).</p>
+            <details class="tech-detail-card" style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 20px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <summary style="font-weight: 600; color: var(--primary); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; outline: none; list-style: none;">
+                    <span>🎬</span> ¿Cómo funciona esta simulación de crecida topográfica?
+                </summary>
+                <div style="margin-top: 15px; font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; cursor: default;">
+                    <ul>
+                        <li style="margin-bottom: 8px;"><strong>¿Qué es lo que hace?</strong> Esta simulación calcula de forma teórica e interactiva qué celdas de terreno quedarían sumergidas si el nivel del agua se elevara uniformemente a una altura determinada (cota).</li>
+                        <li style="margin-bottom: 8px;"><strong>¿Qué métrica se está moviendo?</strong> La métrica móvil es la <strong>cota de elevación topográfica</strong> (altitud en metros sobre el nivel del mar, m.s.n.m.). Al arrastrar el slider, el modelo clasifica como "inundados" a todos los píxeles cuyo relieve en el DEM sea menor o igual a la cota seleccionada, y que además pertenezcan a llanuras y cuencas bajas (pendiente &le; 5°).</li>
+                        <li style="margin-bottom: 8px;"><strong>Fuente de los datos de relieve:</strong> Los datos provienen del <strong>Modelo de Elevación Digital de Copernicus (Copernicus DEM GLO-30)</strong> de 30m de resolución original, interpolado y remuestreado a 20m de grilla espacial para alinearse exactamente con las imágenes multiespectrales de Sentinel-2.</li>
+                    </ul>
+                </div>
+            </details>
             
             <div class="two-col">
                 <div>
@@ -758,11 +803,16 @@
                         const tr = document.createElement('tr');
                         tr.style.borderBottom = '1px solid var(--border-color)';
                         tr.style.height = '50px';
+                        const diff = (item.hectareas_sin_dem - item.hectareas).toFixed(2);
                         tr.innerHTML = `
                             <td style="padding: 10px 20px; font-weight: 600; color: var(--primary-dark);">${item.nombre}</td>
                             <td style="padding: 10px 20px; font-weight: bold;">${item.hectareas.toFixed(2)} ha</td>
-                            <td style="padding: 10px 20px; color: var(--danger); font-weight: bold;">${item.poblacion.toLocaleString()} personas</td>
-                            <td style="padding: 10px 20px; color: var(--text-muted);">${item.pixeles.toLocaleString()} píxeles</td>
+                            <td style="padding: 10px 20px; color: var(--text-muted);">${item.hectareas_sin_dem.toFixed(2)} ha</td>
+                            <td style="padding: 10px 20px; color: var(--danger); font-weight: bold;">${diff} ha</td>
+                            <td style="padding: 10px 20px; font-weight: 500; color: var(--accent);">${item.iou_consenso.toFixed(4)}</td>
+                            <td style="padding: 10px 20px; font-weight: 500; color: var(--success);">${item.dice_consenso.toFixed(4)}</td>
+                            <td style="padding: 10px 20px; color: var(--primary-light); font-weight: bold;">${item.poblacion.toLocaleString()} personas</td>
+                            <td style="padding: 10px 20px; color: var(--text-muted);">${item.poblacion_sin_dem.toLocaleString()} personas</td>
                         `;
                         tbody.appendChild(tr);
                     });

@@ -183,23 +183,40 @@ elif menu == "🤖 Comparación de Modelos":
         try:
             with open(metricas_path, "r") as f:
                 metricas = json.load(f)
-                
-            # Convertir a DataFrame y formatear
+            # Convertir a DataFrame y calcular diferencia
             df = pd.DataFrame.from_dict(metricas, orient='index')
+            df["Diferencia Hectáreas (ha)"] = (df["hectareas_sin_dem"] - df["hectareas"]).round(2)
+            
+            # Reordenar y renombrar
             df = df.rename(columns={
                 "nombre": "Modelo de Clasificación",
-                "hectareas": "Hectáreas Detectadas (ha)",
-                "poblacion": "Población Afectada Estimada",
-                "pixeles": "Píxeles Totales Detectados"
+                "hectareas": "Hectáreas (Con DEM)",
+                "hectareas_sin_dem": "Hectáreas (Sin DEM)",
+                "iou_consenso": "Jaccard IoU (Consenso)",
+                "dice_consenso": "Dice Coefficient (Consenso)",
+                "poblacion": "Población (Con DEM)",
+                "poblacion_sin_dem": "Población (Sin DEM)"
             })
             
+            # Seleccionar columnas a mostrar
+            cols_to_show = [
+                "Modelo de Clasificación", 
+                "Hectáreas (Con DEM)", 
+                "Hectáreas (Sin DEM)", 
+                "Diferencia Hectáreas (ha)",
+                "Jaccard IoU (Consenso)",
+                "Dice Coefficient (Consenso)",
+                "Población (Con DEM)",
+                "Población (Sin DEM)"
+            ]
+            
             # Mostrar tabla interactiva
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df[cols_to_show], use_container_width=True, hide_index=True)
             
             # Mostrar gráfico comparativo
             chart_path = IMG_DIR / "comparacion_metricas_modelos.png"
             if chart_path.exists():
-                st.image(str(chart_path), caption="Comparación de hectáreas inundadas y población afectada por modelo.", width='stretch')
+                st.image(str(chart_path), caption="Comparación de hectáreas inundadas (con y sin DEM) y población afectada por modelo.", width='stretch')
                 
             # Selector de visualización de máscaras
             st.markdown("<h3 class='section-title'>Visualización Interactiva de Máscaras</h3>", unsafe_allow_html=True)
@@ -215,18 +232,33 @@ elif menu == "🤖 Comparación de Modelos":
             else:
                 st.warning(f"No se encontró la imagen de superposición para {modelo_sel}.")
                 
-            # Discusión técnica
+            # Discusión técnica y defensas de los modelos
             st.markdown("<h3 class='section-title'>Análisis Técnico y Lecciones Aprendidas</h3>", unsafe_allow_html=True)
-            st.info("""
-            **Puntos Clave del Análisis:**
-            - **Random Forest Base (9 features):** Sirve como nuestra base sólida. Al ser un clasificador pixel-a-pixel, tiende a presentar ruido espacial (falsos positivos puntuales) pero captura bien los bordes del agua en alta reflectancia.
-            - **Random Forest con PCA (3 Componentes):** Al consolidar >98% de la varianza en 3 dimensiones, el clasificador opera sobre un espacio denso y no correlacionado, reduciendo el ruido de la clasificación. Al corregirse el domain shift (aplicando el escalador y PCA de Marzo a Febrero), se observan métricas estables.
-            - **Embeddings de BetaEarth (AlphaEarth 64D):** Al incorporar un contexto local denso (a través del codificador auto-supervisado de DeepMind), el clasificador RF en los embeddings genera áreas de inundación muy cohesivas y continuas, minimizando falsos positivos en zonas de suelos mixtos húmedos.
-            - **U-Net (PyTorch - Destilación):** La arquitectura convolucional (ResNet34 backbone) suaviza los bordes y rellena lagunas, adaptándose mejor al relieve topográfico gracias a su campo receptivo espacial. Es muy efectiva para regularizar clasificaciones ruidosas.
-            - **Prithvi-EO-2.0 (IBM/NASA):** Muestra una excelente transferencia zero-shot. Al estar entrenado masivamente para flood segmentation (Sen1Floods11), discrimina de forma precisa entre reflectancia del agua real y suelos fangosos de llanura baja.
-            - **Ajuste Fino Local (Fine-Tuning en GPU RTX 3090):** El fine-tuning local usando parches de Sentinel-2 y pseudo-etiquetas de alta confianza demostró ser una mejora crítica. En el caso de **Prithvi**, el modelo ajustado redujo la estimación de 8966 ha a 355 ha, eliminando por completo los falsos positivos por saturación en campos agrícolas periféricos y concentrándose únicamente en el agua estancada y las cuencas desbordadas reales.
-            - **Exclusión de TESSERA (Cambridge):** Aunque se evaluó su uso (librería `geotessera`), este modelo está diseñado para generar embeddings **anuales consolidados** (un resumen de todo un año de datos de satélite). Al ser una inundación un evento transitorio y rápido de pocos días en Feb/Mar de 2025, un promedio anual diluye completamente la firma del agua, impidiendo detectar la crecida.
-            """)
+            
+            with st.expander("🛡️ Defensa y Explicación de los Modelos (¿Qué hace cada uno?)"):
+                st.write("""
+                - **RF (Base):** Clasificador tradicional pixel-a-pixel. Se entrena con reflectancia multiespectral básica y dos índices de agua. Es rápido pero muy susceptible al ruido del suelo y las sombras (sal y pimienta) porque no analiza la estructura espacial de los píxeles adyacentes.
+                - **RF (3 PCA):** Reduce la dimensionalidad del dataset multiespectral de 7 bandas a 3 componentes principales (capturando el 98.97% de la varianza). Al remover ruido y componentes de correlación mutua, genera mapas de inundación más compactos pero pierde píxeles húmedos marginales.
+                - **RF (BetaEarth):** Emplea representaciones latentes geoespaciales de 64 dimensiones. Dado que los embeddings provienen de un codificador espacial pre-entrenado, capturan el contexto de vecindad de cada píxel, logrando delimitar zonas de inundación con excelente cohesión geográfica.
+                - **U-Net (Distilación):** Red convolucional entrenada para replicar el output de Random Forest base. Actúa como un filtro de regularización convolucional (campo receptivo de 256x256), rellenando lagunas y suavizando bordes ruidosos.
+                - **U-Net (Ajuste Fino):** Red convolucional entrenada desde cero con parches locales y pseudo-etiquetas de alta confianza. Logra generalizar de forma sobresaliente las formas y estructuras de canales fluviales y valles de inundación.
+                - **Prithvi-EO-2.0:** Modelo fundacional transformador de 300M de parámetros pre-entrenado por IBM/NASA en inundaciones generales (Sen1Floods11). Posee un umbral espacial/espectral muy genérico y sensible al agua, logrando alta exhaustividad pero también falsos positivos.
+                - **Prithvi (Ajuste Fino):** El transformador fundacional adaptado con congelamiento de encoder (backbone ViT) y pesos balanceados (47.83x para agua) sobre parches locales. Especializa su decodificador en la reflectancia y geomorfología específica del suelo de Bahía Blanca.
+                """)
+                
+            with st.expander("📊 Explicación Física de las Discrepancias (¿Por qué difieren tanto?)"):
+                st.write("""
+                Las diferencias métricas (desde las 1,441 ha de RF-PCA hasta las 8,966 ha de Prithvi Zero-Shot) tienen explicaciones físicas e ingenieriles claras:
+                1. **La sobreestimación de Prithvi Zero-Shot (8,966 ha):** Al ser un modelo fundacional entrenado a escala global, confunde la alta reflectancia húmeda de los suelos arcillosos y costeros planos de Bahía Blanca con agua estancada inundada. Al no tener calibración local, el modelo clasifica cualquier zona con alta humedad en el suelo como inundación.
+                2. **El colapso por desbalance de clases:** En los primeros intentos de ajuste fino, los modelos colapsaban a clasificar todo como tierra (dando 355 ha) porque el agua representa menos del 3% de los píxeles totales de la zona. Al aplicar **pesos de clase balanceados (47.83x)** en Prithvi y una pérdida combinada Dice+BCE en U-Net, los modelos aprendieron a optimizar la detección del agua sin dejarse engañar por la clase mayoritaria (tierra).
+                3. **Efecto del Filtro DEM:** El Modelo Digital de Elevación (DEM) de Copernicus remueve de forma contundente sombras de nubes, laderas empinadas orientadas al sur y falsos positivos en zonas urbanas elevadas, reduciendo el área a su llanura de inundación fluvial real.
+                """)
+                
+            with st.expander("🌍 BetaEarth vs. AlphaEarth (Google DeepMind)"):
+                st.write("""
+                - **AlphaEarth Foundations (AEF):** Es un modelo cerrado y propietario desarrollado por Google DeepMind que genera embeddings geoespaciales de 64 dimensiones para cualquier ubicación terrestre a 10m de resolución. Dado que el modelo no ha sido liberado al público y solo sus embeddings precalculados en Google Earth Engine están disponibles, no es posible ejecutarlo de forma local o directa en nuestro pipeline offline.
+                - **BetaEarth (Asterisk Labs):** Es un emulador e interpolador de código abierto entrenado de forma supervisada para imitar los embeddings de AlphaEarth a partir de imágenes Sentinel-1 y Sentinel-2 estándares. Nos permite generar embeddings locales de 64D en nuestra máquina para las fechas específicas del evento (**Febrero y Marzo de 2025**) y entrenar clasificadores de Machine Learning sobre ellos de forma autónoma.
+                """)
         except Exception as e:
             st.error(f"Error al cargar las métricas: {e}")
     else:
@@ -261,7 +293,15 @@ elif menu == "🛰️ Comparación Sentinel-2":
 
 elif menu == "🎬 Simulación de Crecida (DEM)":
     st.markdown("<h3 class='section-title'>Simulación Teórica de Crecida (DEM)</h3>", unsafe_allow_html=True)
-    st.write(r"Esta simulación permite evaluar de forma teórica qué áreas se verían afectadas si el agua subiera a una altitud determinada (cota sobre el nivel del mar), considerando exclusivamente el relieve de Copernicus DEM (para pendientes bajas $\le 5^{\circ}$).")
+    with st.expander("ℹ️ ¿Cómo funciona esta simulación de crecida topográfica?"):
+        st.write(r"""
+        *   **¿Qué es lo que hace?**  
+            Esta simulación calcula de forma teórica e interactiva qué celdas de terreno quedarían sumergidas si el nivel del agua se elevara uniformemente a una altura determinada (cota).
+        *   **¿Qué métrica se está moviendo?**  
+            La métrica móvil es la **cota de elevación topográfica** (altitud en metros sobre el nivel del mar, m.s.n.m.). Al arrastrar el slider, el modelo clasifica como "inundados" a todos los píxeles cuyo relieve en el DEM sea menor o igual a la cota seleccionada, y que además pertenezcan a llanuras y cuencas bajas (pendiente $\le 5^{\circ}$).
+        *   **Fuente de los datos de relieve:**  
+            Los datos provienen del **Modelo de Elevación Digital de Copernicus (Copernicus DEM GLO-30)** de 30m de resolución original, interpolado y remuestreado a 20m de grilla espacial para alinearse exactamente con las imágenes multiespectrales de Sentinel-2.
+        """)
     
     alturas = [0, 2, 4, 6, 8, 10, 12, 15, 20, 25, 30]
     

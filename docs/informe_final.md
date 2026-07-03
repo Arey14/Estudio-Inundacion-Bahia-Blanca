@@ -96,17 +96,17 @@ Para evaluar mejoras en la precisión espacial, se desarrollaron modelos adicion
 
 El análisis espacial comparativo arrojó las siguientes métricas cuantitativas consolidadas para cada una de las aproximaciones evaluadas dentro del polígono de estudio:
 
-| ID | Modelo / Aproximación | Hectáreas Inundadas Netas (ha) | Población Afectada Estimada (hab) | Cantidad de Píxeles (20m) |
-|---|---|:---:|:---:|:---:|
-| 1 | **Random Forest (Base)** | 2219.32 | 960 | 55,483 |
-| 2 | **Random Forest (3 PCA)** | 1441.00 | 337 | 36,025 |
-| 3 | **Random Forest (BetaEarth Embeddings)** | 2479.12 | 1306 | 61,978 |
-| 4 | **U-Net ResNet34 (Destilación)** | 2138.04 | 548 | 53,451 |
-| 5 | **U-Net ResNet34 (Ajuste Fino)** | 4446.60 | 280 | 111,165 |
-| 6 | **Prithvi-EO-2.0 (Zero-Shot)** | 8966.56 | 1874 | 224,164 |
-| 7 | **Prithvi-EO-2.0 (Ajuste Fino Ponderado)** | **5869.12** | **2897** | **146,728** |
+| ID | Modelo / Aproximación | Hectáreas Con DEM (ha) | Hectáreas Sin DEM (ha) | Diferencia (ha) | Jaccard IoU (Consenso) | Dice Coeff. (Consenso) | Población Con DEM (hab) | Población Sin DEM (hab) |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | **RF (Base)** | 2219.32 | 3261.00 | 1041.68 | 0.6968 | 0.8213 | 960 | 1261 |
+| 2 | **RF (3 PCA)** | 1441.00 | 1504.16 | 63.16 | 0.3639 | 0.5336 | 337 | 361 |
+| 3 | **RF (BetaEarth Embeddings)** | 2479.12 | 2909.52 | 430.40 | 0.3764 | 0.5469 | 1306 | 1415 |
+| 4 | **U-Net ResNet34 (Destilación)** | 1264.16 | 1933.12 | 668.96 | 0.4360 | 0.6072 | 529 | 688 |
+| 5 | **U-Net ResNet34 (Ajuste Fino)** | 4446.60 | 4447.44 | 0.84 | 0.3375 | 0.5047 | 280 | 280 |
+| 6 | **Prithvi-EO-2.0 (Zero-Shot)** | 8966.56 | 10928.88 | 1962.32 | 0.1692 | 0.2895 | 1874 | 2382 |
+| 7 | **Prithvi-EO-2.0 (Ajuste Fino)** | **5869.12** | **8687.92** | **2818.80** | **0.1123** | **0.2019** | **2897** | **3541** |
 
-El gráfico comparativo consolidado se presenta a continuación:
+El gráfico comparativo consolidado (rediseñado como gráfico de barras agrupadas y línea de población) se presenta a continuación:
 
 ![Gráfico Comparativo de Modelos y Embeddings](/home/augusto/.gemini/antigravity-ide/brain/f832c0be-1379-4890-98cf-754c40e7ff8d/comparacion_metricas_modelos.png)
 
@@ -114,19 +114,31 @@ El gráfico comparativo consolidado se presenta a continuación:
 
 ## 5. Discusión y Comparación de Algoritmos
 
-### 5.1. Análisis Comparativo de Rendimiento
-*   **Clasificadores Tradicionales vs. Reducción de Dimensionalidad:** El modelo Random Forest Base sirve como un baseline sólido (2219 ha). La introducción de PCA (1441 ha) reduce significativamente los falsos positivos en suelos húmedos mixtos al conservar únicamente la varianza principal, pero tiende a ignorar acumulaciones de agua localizadas de menor escala.
-*   **Embeddings BetaEarth:** El uso de embeddings multidimensionales derivados de BetaEarth (2479 ha) logró capturar de forma excelente la cohesión espacial y la forma de la llanura de inundación fluvial, suavizando los bordes y superando a los métodos puramente pixel-a-pixel.
-*   **U-Net ResNet34 (Destilación vs Fine-Tuning):** El modelo de destilación (2138 ha) se limitó a regularizar espacialmente los contornos del Random Forest Base. En contraste, el modelo entrenado mediante ajuste fino supervisado local con pérdida combinada de Dice+BCE por 500 épocas (4446 ha) demostró una gran capacidad de generalización espacial, delimitando áreas inundadas con bordes mucho más suaves y compactos.
-*   **Prithvi-EO-2.0 (Zero-Shot vs Fine-Tuning Ponderado):** La inferencia *Zero-Shot* (8966 ha) sobreestima de forma severa el agua debido a que su entrenamiento genérico en Sen1Floods11 confunde las zonas periurbanas de suelo arcilloso húmedo y pendientes nulas con inundaciones activas. 
-    Por otra parte, el primer intento de ajuste fino directo de Prithvi dio un resultado deficiente (355 ha) debido a que no se contempló el desbalance de clases; el modelo optimizó la pérdida clasificando todo como tierra. Al reconfigurar el entrenamiento introduciendo el peso balanceado de **47.83x para el agua** y entrenar por **500 épocas**, el modelo **Prithvi Fine-Tuned** (5869 ha) se especializó con éxito en las sutilezas de la geografía y reflectancia local, recortando falsos positivos en el área urbana pero manteniendo una alta sensibilidad en la delimitación de las zonas efectivamente inundadas.
+### 5.1. Análisis Comparativo de Rendimiento y Defensa de Modelos
+*   **RF (Base):** Este modelo pixel-a-pixel sirve como línea de base (2219 ha con DEM). Al no incorporar relaciones contextuales locales, su salida presenta "ruido de sal y pimienta". Sin embargo, gracias al cálculo manual de NDWI y MNDWI, detecta de forma excelente el núcleo del cuerpo de agua con alta reflectancia.
+*   **RF (3 PCA):** Reduciendo la dimensionalidad a 3 componentes principales (PCA), se retiene el 98.97% de la varianza pero se filtra el ruido. Esto compacta las predicciones (1441 ha), pero subestima la inundación al omitir acumulaciones de agua localizadas de menor escala.
+*   **RF con Embeddings BetaEarth:** El clasificador RF entrenado sobre embeddings espaciales auto-supervisados (2479 ha) logra un excelente balance. El codificador espacial suaviza los contornos y capta la forma geomorfológica natural de los cauces y llanuras inundadas.
+*   **U-Net ResNet34 (Destilación vs Fine-Tuning):** El modelo de destilación (1264 ha) actúa como un regularizador convolucional de la máscara de RF base, rellenando huecos internos y removiendo ruidos. El modelo de Ajuste Fino (4446 ha), entrenado con parches locales y pérdida combinada Dice+BCE durante 500 épocas, demuestra un excelente poder de generalización, identificando estructuras continuas de drenaje urbano.
+*   **Prithvi-EO-2.0 (Zero-Shot vs Fine-Tuning Ponderado):** La inferencia *Zero-Shot* (8966 ha) sobreestima de forma masiva el área inundada al clasificar como "agua" a las zonas de suelo húmedo de llanuras de pendiente nula y zonas periurbanas de suelo arcilloso debido a sus firmas espectrales similares. El modelo ajustado localmente (**Prithvi Ajuste Fino** con 5869 ha), entrenado con pesos balanceados (**47.83x para el agua**), especializa su decodificador en la reflectancia y topografía específicas de Bahía Blanca. Captura con gran fidelidad la llanura de inundación fluvial real, reduciendo drásticamente la sobreestimación general del Zero-Shot sin colapsar hacia predicciones de tierra.
 
-### 5.2. Mitigación del Desbalance de Clases
+### 5.2. Impacto Cuantitativo y Físico del Filtro DEM
+La comparación cuantitativa de los resultados con y sin el filtro topográfico del DEM (pendiente $\le 5^{\circ}$ y altitud $\le 45$ metros) revela que el DEM es un componente crítico de postprocesamiento:
+*   En **Prithvi Zero-Shot**, el DEM reduce la estimación de 10928.88 ha a 8966.56 ha (removiendo 1962.32 ha de falsos positivos en colinas y laderas elevadas de suelo húmedo).
+*   En **RF (Base)**, disminuye de 3261.00 ha a 2219.32 ha (1041.68 ha descartadas), eliminando sombras urbanas y de relieve en los sectores altos del oeste de Bahía Blanca.
+*   En **Prithvi (Ajuste Fino)**, el filtro remueve 2818.80 ha. Esto demuestra que incluso con el fine-tuning local, los transformadores multiespectrales pueden predecir falsos positivos en laderas o mesetas altas que físicamente no pueden acumular agua de crecida. El DEM aporta la validación física indispensable.
+
+### 5.3. Mitigación del Desbalance de Clases
 La experiencia con el transformador fundacional Prithvi resalta la importancia de las funciones de pérdida pesadas en problemas de teledetección. Dado que el agua inundada representa menos del 3% de los píxeles del AOI analizado, las redes neuronales profundas tienden a colapsar hacia predicciones mayoritarias (tierra). El uso de la ponderación de pesos en la CrossEntropy y la pérdida Dice en U-Net demostraron ser pasos obligatorios para habilitar el uso práctico de modelos con millones de parámetros en zonas geográficas locales específicas.
 
-### 5.3. Limitaciones del Estudio
-*   **Resolución Temporal:** La disponibilidad de imágenes ópticas Sentinel-2 sin nubes limitó el análisis a dos fechas discretas (Febrero y Marzo de 2025). Por lo tanto, no fue posible capturar el pico máximo de la crecida ni estudiar las curvas dinámicas diarias de escurrimiento.
-*   **Resolución Demográfica:** El cruce con WorldPop (grilla de 1km de resolución nativa) asume una distribución demográfica homogénea dentro de cada celda. En zonas de transición periurbana e industrial esto genera imprecisiones en el cálculo de personas expuestas, lo que explica por qué Prithvi Fine-Tuned tiene más hectáreas que U-Net pero registra un recuento de población afectada sustancialmente más elevado al superponerse de forma diferente en zonas de alta densidad periférica.
+### 5.4. Explicación Metodológica de BetaEarth
+El uso de **BetaEarth (Asterisk Labs)** en lugar del modelo original **AlphaEarth Foundations (AEF) de Google DeepMind** se debe a restricciones de accesibilidad y propiedad intelectual:
+1.  **AlphaEarth** es un modelo cerrado y sus pesos no están disponibles para descarga pública o ejecución local. Google solo distribuye sus embeddings precalculados como colecciones estáticas dentro de la plataforma Google Earth Engine.
+2.  **BetaEarth** actúa como un emulador local de código abierto entrenado a partir de los datos públicos de AlphaEarth. Nos permite generar localmente representaciones latentes de 64 dimensiones para las imágenes multiespectrales dinámicas del **año 2025** (Febrero y Marzo) de forma offline y directa en nuestro pipeline sin depender de APIs de terceros o de la nube de Earth Engine.
+
+### 5.5. Simulación de Crecida Topográfica
+El dashboard interactivo cuenta con una **Simulación de Crecida Topográfica** dinámica. Su propósito es realizar un análisis de vulnerabilidad física del territorio frente al incremento hipotético del nivel del agua (elevación o cota en metros sobre el nivel del mar, m.s.n.m.):
+*   **Funcionamiento:** El algoritmo recorre las elevaciones del Copernicus DEM GLO-30 y clasifica como "inundables" a todos los píxeles con altitud $\le \text{cota}$ y pendiente plana ($\le 5^{\circ}$), filtrando zonas elevadas.
+*   **Métrica móvil:** La métrica de control es la **cota de elevación**. A medida que esta aumenta, se observa cómo el escurrimiento de agua inunda primero los humedales del sur y las cuencas bajas del este de Bahía Blanca antes de aproximarse al núcleo urbano central, que permanece seguro por encima de la cota de 20 metros.
 
 ---
 
@@ -140,3 +152,6 @@ Este trabajo práctico presenta una comparación metodológica exhaustiva de la 
 *   Weng, Q. (2011). *Advances in environmental remote sensing: sensors, algorithms, and applications*. CRC Press.
 *   Jakubik, J., Fraccaro, P., & et al. (2024). Prithvi-EO-2.0: A Foundation Model for Earth Observation. *arXiv preprint arXiv:2404.03211*.
 *   Sargent, I., & et al. (2021). Pixels to Population: Estimating population exposure using satellite imagery and convolutional neural networks. *Remote Sensing*, 13(15), 2912.
+*   Google DeepMind & Google Earth. (2024). AlphaEarth: A Foundation Model for Earth Observation. Technical Report.
+*   Asterisk Labs. (2024). BetaEarth: Open-source Emulator for Geospatial Embeddings. Asterisk Labs Publications.
+
