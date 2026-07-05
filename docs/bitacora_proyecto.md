@@ -197,3 +197,53 @@ El visualizador cuenta con un módulo interactivo de simulación de crecida topo
 El visualizador web interactivo ([index.html](file:///home/augusto/Desktop/TP2/index.html)) y el dashboard de Streamlit ([dashboard.py](file:///home/augusto/Desktop/TP2/scripts/dashboard.py)) cargan estas capas espaciales para permitir su exploración dinámica:
 *   **Control de Capas (Layers Control):** Permite al usuario activar y desactivar de forma independiente el mapa de elevación DEM, el mapa de densidad de población WorldPop y las diferentes máscaras de inundación estimadas por los modelos.
 *   **Superposición Transparente:** La composición en falso color de Sentinel-2 de Marzo sirve de fondo inmóvil, sobre el cual se aplican transparencias de las máscaras de inundación para permitir al usuario constatar visualmente qué modelo delimita con mayor fidelidad el contorno del agua visible.
+
+---
+
+## 🛠️ 8. Guía para Desarrolladores y Estructura del Proyecto
+
+Para que cualquier persona nueva en el proyecto pueda empezar a programar o realizar modificaciones de forma inmediata, debe comprender la estructura física y lógica del código y los datos:
+
+### 8.1. Estructura de Directorios Clave
+*   **[data-Sentinel-2/](file:///home/augusto/Desktop/TP2/data-Sentinel-2)**: Directorio de datos de entrada y salida ráster. Contiene las imágenes Sentinel-2 originales de Febrero y Marzo, el Copernicus DEM (`co-dem.tif`), las densidades de WorldPop (`poblacion_bahia_20m.tif`), las máscaras vectoriales del IGN en formato ráster y los archivos de métricas consolidadas (`metricas_modelos.json` y `metricas_modelos.js`).
+*   **[scripts/](file:///home/augusto/Desktop/TP2/scripts)**: Scripts de Python que implementan todo el ciclo de vida del dato:
+    *   [procesamiento.py](file:///home/augusto/Desktop/TP2/scripts/procesamiento.py): Ejecuta el preprocesamiento general de Sentinel-2, calcula los índices (NDWI, MNDWI), entrena el Random Forest Base y genera las máscaras crudas iniciales.
+    *   [preparar_dataset_patches.py](file:///home/augusto/Desktop/TP2/scripts/preparar_dataset_patches.py): Divide la zona de estudio en parches de $224 \times 224$ píxeles y genera la máscara de consenso para el fine-tuning.
+    *   [finetune_unet.py](file:///home/augusto/Desktop/TP2/scripts/finetune_unet.py): Ajuste fino de la U-Net ResNet34 en PyTorch.
+    *   [finetune_prithvi.py](file:///home/augusto/Desktop/TP2/scripts/finetune_prithvi.py): Ajuste fino del transformador fundacional Prithvi usando PyTorch Lightning.
+    *   [comparar_modelos.py](file:///home/augusto/Desktop/TP2/scripts/comparar_modelos.py): Pipeline maestro que ejecuta inferencia con los 7 modelos, calcula estadísticas con/sin DEM, computa el IoU/Dice y regenera el gráfico de barras agrupadas final.
+    *   [dashboard.py](file:///home/augusto/Desktop/TP2/scripts/dashboard.py): Servidor interactivo desarrollado con Streamlit para la exploración de datos.
+*   **[docs/](file:///home/augusto/Desktop/TP2/docs)**: Documentación técnica del proyecto, incluyendo el [informe_final.md](file:///home/augusto/Desktop/TP2/docs/informe_final.md) y esta bitácora.
+*   **[img/](file:///home/augusto/Desktop/TP2/img)**: Gráficos e imágenes estáticas exportadas para los visualizadores y reportes.
+
+### 8.2. Instrucciones para la Puesta en Marcha (Inicio Rápido)
+Para arrancar el proyecto localmente y reproducir los resultados:
+1.  **Entorno Virtual e Instalación de Dependencias:**
+    ```bash
+    # Activar entorno virtual
+    source .venv/bin/activate
+    # Instalar librerías principales de GIS y Machine Learning (rasterio, PyTorch, Lightning, Terratorch, scikit-learn, etc.)
+    pip install -r requirements.txt
+    ```
+2.  **Ejecutar el Pipeline de Comparación y Métricas:**
+    ```bash
+    # Ejecuta inferencias y regenera gráficos de métricas con/sin DEM, IoU y Dice
+    python scripts/comparar_modelos.py
+    ```
+3.  **Iniciar el Servidor Streamlit:**
+    ```bash
+    streamlit run scripts/dashboard.py --server.port 8501
+    ```
+4.  **Ver Visualizador de Mapas Estático:**
+    *   Abrir el archivo [index.html](file:///home/augusto/Desktop/TP2/index.html) directamente en un navegador web.
+
+### 8.3. Entorno de Hardware Utilizado
+Los modelos basados en aprendizaje profundo (U-Net y Prithvi Ajuste Fino) exigen recursos significativos para su entrenamiento. Todo el entrenamiento local y el ajuste fino de 500 épocas se llevaron a cabo utilizando:
+*   **GPU:** NVIDIA GeForce RTX 3090 (24 GB de VRAM GDDR6X).
+*   **Precisión:** Precisión mixta automática (AMP) de 16 bits para acelerar la computación de tensores en PyTorch Lightning sin saturar la memoria gráfica.
+
+### 8.4. Descarte de Otras Librerías de Embeddings (TESSERA de Cambridge)
+Durante la fase de diseño, se evaluó utilizar embeddings espaciales procedentes del modelo **TESSERA** (Cambridge), el cual fue descartado del análisis por motivos metodológicos de resolución temporal:
+*   **Limitación de TESSERA:** Esta librería (`geotessera`) está optimizada para generar embeddings **anuales consolidados** (un promedio representativo de un año entero de órbitas de satélites).
+*   **Motivo de Exclusión:** Las inundaciones son catástrofes naturales dinámicas y efímeras de corta duración (el desborde en Bahía Blanca se concentró en pocos días de Febrero y Marzo de 2025). Al promediar un año entero, la firma espectral y espacial del agua acumulada se diluye por completo en la media de suelo seco anual, haciendo imposible detectar la inundación. Por esta razón, se prefirió el emulador dinámico **BetaEarth** para extraer embeddings específicos de las fechas exactas del evento.
+
