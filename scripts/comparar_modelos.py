@@ -648,8 +648,8 @@ def main():
     }
     
     from matplotlib.colors import ListedColormap
-    # Colormap de un único color sólido de alto contraste (Cyan Eléctrico / Aqua)
-    cmap_agua = ListedColormap(['#00F5FF'])
+    # Colormap de un único color sólido de alto contraste (Rojo de Emergencia)
+    cmap_agua = ListedColormap(['#FF0000'])
     
     for key, mask in masks.items():
         plt.figure(figsize=(10, 8), dpi=150)

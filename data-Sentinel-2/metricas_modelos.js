@@ -34,14 +34,14 @@ window.metricasModelos = {
   },
   "unet": {
     "nombre": "U-Net (Distilaci\u00f3n)",
-    "hectareas": 1264.16,
-    "poblacion": 529,
-    "pixeles": 31604,
-    "hectareas_sin_dem": 1933.12,
-    "poblacion_sin_dem": 688,
-    "pixeles_sin_dem": 48328,
-    "iou_consenso": 0.436,
-    "dice_consenso": 0.6072
+    "hectareas": 981.0,
+    "poblacion": 221,
+    "pixeles": 24525,
+    "hectareas_sin_dem": 1722.2,
+    "poblacion_sin_dem": 466,
+    "pixeles_sin_dem": 43055,
+    "iou_consenso": 0.4078,
+    "dice_consenso": 0.5793
   },
   "unet_finetuned": {
     "nombre": "U-Net (Ajuste Fino)",

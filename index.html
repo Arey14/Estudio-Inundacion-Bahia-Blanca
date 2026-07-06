@@ -517,7 +517,7 @@
             
             <div style="text-align: center; margin-top: 15px;">
                 <img id="model-overlay-img" class="display-img" src="img/inundacion_overlay_rf_base.png" alt="Máscara de inundación por modelo" style="max-width: 100%; height: auto;">
-                <p class="img-caption" id="model-overlay-caption">Máscara de inundación final (cyan eléctrico) sobre falso color - Random Forest Base.</p>
+                <p class="img-caption" id="model-overlay-caption">Máscara de inundación final (rojo) sobre falso color - Random Forest Base.</p>
             </div>
 
             <h3 class="section-title" style="margin-top: 30px;">Análisis Técnico y Lecciones Aprendidas</h3>
@@ -703,13 +703,13 @@
             document.getElementById('model-overlay-img').src = `img/inundacion_overlay_${key}.png`;
             
             const captions = {
-                'rf_base': 'Máscara de inundación final (cyan eléctrico) sobre falso color - Random Forest Base.',
-                'rf_pca': 'Máscara de inundación final (cyan eléctrico) sobre falso color - Random Forest con PCA (3 componentes).',
-                'rf_betaearth': 'Máscara de inundación final (cyan eléctrico) sobre falso color - Random Forest con embeddings de BetaEarth (64D).',
-                'unet': 'Máscara de inundación final (cyan eléctrico) sobre falso color - U-Net entrenada por destilación supervisada.',
-                'unet_finetuned': 'Máscara de inundación final (cyan eléctrico) sobre falso color - U-Net ajustada localmente (Fine-Tuned en GPU).',
-                'prithvi': 'Máscara de inundación final (cyan eléctrico) sobre falso color - Prithvi-EO-2.0 de IBM/NASA (Zero-Shot).',
-                'prithvi_finetuned': 'Máscara de inundación final (cyan eléctrico) sobre falso color - Prithvi-EO-2.0 de IBM/NASA ajustada localmente (Fine-Tuned en GPU).'
+                'rf_base': 'Máscara de inundación final (rojo) sobre falso color - Random Forest Base.',
+                'rf_pca': 'Máscara de inundación final (rojo) sobre falso color - Random Forest con PCA (3 componentes).',
+                'rf_betaearth': 'Máscara de inundación final (rojo) sobre falso color - Random Forest con embeddings de BetaEarth (64D).',
+                'unet': 'Máscara de inundación final (rojo) sobre falso color - U-Net entrenada por destilación supervisada.',
+                'unet_finetuned': 'Máscara de inundación final (rojo) sobre falso color - U-Net ajustada localmente (Fine-Tuned en GPU).',
+                'prithvi': 'Máscara de inundación final (rojo) sobre falso color - Prithvi-EO-2.0 de IBM/NASA (Zero-Shot).',
+                'prithvi_finetuned': 'Máscara de inundación final (rojo) sobre falso color - Prithvi-EO-2.0 de IBM/NASA ajustada localmente (Fine-Tuned en GPU).'
             };
             document.getElementById('model-overlay-caption').innerText = captions[key] || '';
         };
