@@ -37,7 +37,6 @@ Este documento es una guía paso a paso diseñada para estructurar tu exposició
 > 2. *La Diferencia neta en hectáreas eliminadas por la topografía.*
 > 3. *Los Coeficientes espaciales de Jaccard IoU y Dice.*
 > 4. *La Población afectada estimada en cada aproximación.*
->
 > *Abajo se presenta la visualización de las máscaras estimadas por cada uno de los 7 modelos. Al hacer clic en los botones, una función en Javascript cambia de forma instantánea el archivo de imagen de superposición (`inundacion_overlay_{modelo}.png`) sobre el mapa de composición espectral."*
 
 ---
@@ -84,3 +83,8 @@ A continuación, se listan las preguntas más difíciles y críticas que el jura
 *   **Respuesta de Defensa:** 
     *"Tomamos la cuadrícula de densidad poblacional de **WorldPop** (que tiene una resolución nativa de 1 km) y la interpolamos bilinealmente a 20 metros de resolución para que se alinee píxel a píxel con la máscara de Sentinel-2. Cuando el modelo predice que una celda de 20 metros está inundada, sumamos los habitantes correspondientes a esa pequeña celda.*
     *La limitación metodológica principal es que la interpolación bilineal asume una distribución demográfica homogénea dentro del kilómetro cuadrado original. En áreas periféricas, industriales o de interfaz periurbana, esto puede generar imprecisiones finas en la cantidad exacta de habitantes, aunque funciona de manera excelente como un indicador regional del nivel de exposición al desastre."*
+
+### Pregunta 7: ¿Por qué en la visualización interactiva de máscaras del HTML decidieron cambiar los colores azul y verde (winter_r) a un color sólido de Cyan Eléctrico?
+*   **Respuesta de Defensa:** 
+    *"En las primeras versiones de prueba utilizamos un gradiente de color azul y verde (colormap `winter_r`) para las máscaras. Sin embargo, nos topamos con un problema de contraste visual: en la composición de falso color de Sentinel-2 (SWIR-NIR-Green), la vegetación y los campos agrícolas activos se observan en **verde brillante**. El verde de la máscara de inundación se perdía por completo entre los campos vegetados de fondo.*
+    *Para resolver este problema de usabilidad, cambiamos la paleta de colores por un **color sólido de Cyan Eléctrico Brillante (#00F5FF)** con una opacidad del 60% (`alpha=0.6`). El Cyan Eléctrico ofrece el máximo contraste físico y visual posible en esta composición de fondo: destaca inmediatamente sobre el verde brillante de las plantas y sobre el azul oscuro/negro del agua de fondo, permitiendo al usuario identificar con absoluta claridad los límites y contornos de la inundación sin confusión espectral."*

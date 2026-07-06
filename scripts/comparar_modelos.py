@@ -647,11 +647,15 @@ def main():
         "prithvi_finetuned": inund_prithvi_ft if 'inund_prithvi_ft' in locals() else np.zeros((H,W))
     }
     
+    from matplotlib.colors import ListedColormap
+    # Colormap de un único color sólido de alto contraste (Cyan Eléctrico / Aqua)
+    cmap_agua = ListedColormap(['#00F5FF'])
+    
     for key, mask in masks.items():
         plt.figure(figsize=(10, 8), dpi=150)
         plt.imshow(rgb)
         masked = np.ma.masked_where(mask == 0, mask)
-        plt.imshow(masked, cmap="winter_r", alpha=0.5)
+        plt.imshow(masked, cmap=cmap_agua, alpha=0.6)
         plt.axis("off")
         plt.tight_layout()
         plt.savefig(IMG_DIR / f"inundacion_overlay_{key}.png", bbox_inches='tight', pad_inches=0)
